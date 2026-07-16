@@ -9,7 +9,7 @@
   --bg-body:             white;
   --bg-splash:           black;
   --bg-menu:             rgba(0, 0, 0, 0.5);
-  --bg-menu-item-hover:  rgba(0.5, 0.5, 0.5, 0.5);
+  --bg-menu-item-hover:  rgba(1, 1, 1, 0.05);
   --bg-progress-track:   #7F7F7F;
   --bg-progress-fill:    white;
   --bg-panel: transparent;
@@ -19,7 +19,7 @@
   --color-text-secondary:   gray;
   --color-text-muted:       darkgray;
   --color-text-tretiary: white;
-  --taskbar-height: 35px;
+  --panel-height: 35px;
 
 
 
@@ -95,7 +95,6 @@ body.win_cla{
   align-items: center;
 
   opacity: 1;
-  transition: var(--transition-fade);
   visibility: visible;
 }
 
@@ -105,10 +104,42 @@ body.win_cla{
   display: none;
 }
 
-.hidden {
+/* Стилі для самого оверлею сну */
+#system-sleep-overlay {
+    position: fixed;
+    top: 0; 
+    left: 0;
+    width: 100vw; 
+    height: 100vh;
+    background: #000000;
+    z-index: 999999; 
+    pointer-events: none; /* Кліки проходять крізь оверлей */
+    display:none;
+    animation: show;
+    transition: opacity ease-in 0.5s;
+}
+
+@keyframes show{
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+
+body.os-suspended, 
+body.os-suspended *,
+#system-sleep-overlay {
+    cursor: none !important;
+}
+
+
+.hidden{
   opacity: 0;
   visibility: hidden;
-  display: none;
+  display:  none;
+}
+
+.loading{
+  cursor: wait !important;
 }
 
 .tra:not(.win_cla) .wb-body{
@@ -187,6 +218,10 @@ text-shadow: 1px 1px 1px #000;
   opacity: 0.5;
 }
 
+.disabled{
+  pointer-events: none;
+  color:gray !important;
+}
 
 
 
@@ -236,15 +271,6 @@ text-shadow: 1px 1px 1px #000;
   color: var(--color-text-muted);
 }
 
-
-/* =============================================
-   SELECTION
-   ============================================= */
-::selection {
-  background-color: var(--color-selection);
-}
-
-
 /* =============================================
    DESKTOP ICON GRID
    ============================================= */
@@ -257,11 +283,12 @@ text-shadow: 1px 1px 1px #000;
   justify-content: flex-start;
   gap: 0;
   z-index: 1;
-  height: 100vh;
+height: calc(100vh - var(--panel-height));
   overflow: hidden;
+  margin-bottom: var(--panel-height);
 }
-body.taskbar-at-top #desktopApps{
-  margin-top: var(--taskbar-height);
+body.panel-at-top #desktopApps{
+  margin-top: var(--panel-height);
 }
 
 #desktopApps > div {
@@ -271,7 +298,7 @@ body.taskbar-at-top #desktopApps{
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 10px;
   text-align: center;
   padding: 15px;
   filter: drop-shadow(0 0 1px black);
@@ -307,30 +334,30 @@ iframe #document {
    WINBOX — MINIMIZED
    ============================================= */
 .winbox.max {
-  height: calc(100% - var(--taskbar-height)) !important;
+  height: calc(100% - var(--panel-height)) !important;
 }
 
-body.taskbar-at-top .winbox.max {
-    top: var(--taskbar-height) !important;
+body.panel-at-top .winbox.max {
+    top: var(--panel-height) !important;
 }
 
 /* Якщо таскбар знизу */
 .winbox.min {
   bottom: 0 !important; /* ПРИМУСОВО притискаємо */
-  top: calc(100% - var(--taskbar-height)) !important;
+  top: calc(100% - var(--panel-height)) !important;
   
   /* Притискаємо до самого низу */
   
 left: 40px !important;
 z-index: 9999;
 /* Додаємо !important, щоб JS-розрахунки бібліотеки не заважали */
-height: var(--taskbar-height) !important;
-min-height: var(--taskbar-height) !important;
-max-height: var(--taskbar-height) !important;
+height: var(--panel-height) !important;
+min-height: var(--panel-height) !important;
+max-height: var(--panel-height) !important;
 }
 
 /* Якщо таскбар зверху, WinBox може ставити top: 5px */
-body.taskbar-at-top .winbox.min {
+body.panel-at-top .winbox.min {
   top: 0 !important;
   bottom: auto;
 }
@@ -385,6 +412,10 @@ transition: none !important;
 opacity: 1 !important;
 }
 
+.win_cla svg{
+  filter: none;
+}
+
 .winbox.is-cont-hidden{
       background: transparent !important;
   /* 10px solid border with 50% opacity */
@@ -405,7 +436,6 @@ opacity: 1 !important;
 }
 
 .winbox{
-
 animation: grow 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
     opacity: 0;
     transform: scale(0.85) translateY(20px);
@@ -431,6 +461,8 @@ border-radius: var(--radius-md); /* Заокруглення для сучасн
 
 
 
+
+
 /* 2. Стилізація тіла вікна (контент) */
 .winbox .wb-body {
     /* Забезпечуємо, щоб тіло вікна також було прозорим/або темним, якщо це потрібно */
@@ -447,8 +479,9 @@ border-radius: var(--radius-md); /* Заокруглення для сучасн
     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); /* Для читабельності */
 }
 
-.winbox.wb-control{
-  cursor: default;
+.winbox .wb-header,
+.winbox .wb-header *{
+  cursor: default !important;
 }
 
 .winbox:not(.win_cla) .wb-control > *{
@@ -466,44 +499,37 @@ border-radius: var(--radius-md); /* Заокруглення для сучасн
 }
 
 /* 2. ПОКАЗУЄМО ІКОНКУ ПРИ НАВЕДЕННІ НА КОЖНУ КНОПКУ */
-.winbox:not(.win_cla) .wb-control > *:hover {
+.winbox:not(.win_cla) .wb-control > *:hover,
+.winbox:not(.win_cla) .wb-control > *.hover {
     background-size: 70%; /* ЗНАЧОК ПОКАЗАНО: встановлюємо видимий розмір */
 }
 .winbox .wb-max {
   background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2Utd2lkdGg9IjIuNSIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBkPSJNOCAzSDVhMiAyIDAgMCAwLTIgMnYzbTE4IDBWNWEyIDIgMCAwIDAtMi0yaC0zbTAgMThoM2EyIDIgMCAwIDAgMi0ydi0zTTMgMTZ2M2EyIDIgMCAwIDAgMiAyaDMiLz48L3N2Zz4=);
+}
+
+.winbox.glass-theme:not(.focus) .wb-header *{
+  color: lightgray;
+}
+
+.winbox:not(.win_cla) .wb-max {
   background-color: rgba(35, 140, 35, 60%);
 }
 
 .winbox.max .wb-max {
   background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9IiNmZmYiIHZpZXdCb3g9IjAgMCA5NiA5NiI+PHBhdGggZD0iTTIwIDcxLjMxMUMxNS4zNCA2OS42NyAxMiA2NS4yMyAxMiA2MFYyMGMwLTYuNjMgNS4zNy0xMiAxMi0xMmg0MGM1LjIzIDAgOS42NyAzLjM0IDExLjMxMSA4SDI0Yy0yLjIxIDAtNCAxLjc5LTQgNHY1MS4zMTF6Ii8+PHBhdGggZD0iTTkyIDc2VjM2YzAtNi42My01LjM3LTEyLTEyLTEySDQwYy02LjYzIDAtMTIgNS4zNy0xMiAxMnY0MGMwIDYuNjMgNS4zNyAxMiAxMiAxMmg0MGM2LjYzIDAgMTItNS4zNyAxMi0xMnptLTUyIDRjLTIuMjEgMC00LTEuNzktNC00VjM2YzAtMi4yMSAxLjc5LTQgNC00aDQwYzIuMjEgMCA0IDEuNzkgNCA0djQwYzAgMi4yMS0xLjc5IDQtNCA0SDQweiIvPjwvc3ZnPg==);
-  background-color: rgba(35, 140, 35, 60%);
 }
 
-.winbox .wb-min {
+.winbox:not(.win_cla) .wb-min {
   background-color: rgb(255, 215, 0, 60%);
 }
 
-
-
-.winbox .wb-close {
+.winbox:not(.win_cla) .wb-close {
   background-color: rgba(220, 20, 60, 60%);
 }
 
-
-.winbox.max {
-    
-    border-radius: 0;
-    border: none;
+.winbox .wb-full {
+  display: none !important;
 }
-
-
-.winbox.max .wb-body {
-    border-radius: 0;
-}
-
-
-
-
 
 .winbox.min .wb-control  {
     display: none;
@@ -513,11 +539,19 @@ border-radius: var(--radius-md); /* Заокруглення для сучасн
     border-top-right-radius: 0;
 }
 
+.winbox.max {
+    
+    border-radius: 0;
+    border: none;
+}
 
+.winbox.max .wb-body {
+    border-radius: 0;
+}
 
 
 /* =============================================
-   FOOTER / TASKBAR
+   FOOTER / panel
    ============================================= */
 footer {
   position: fixed;
@@ -528,13 +562,13 @@ footer {
   margin: 0;
   padding: 5px;
   width: 100vw;
-border-radius: none;
-
+  border-radius: none;
   color: var(--color-text-tretiary);
   font-size: 20px;
   background: var(--bg-panel) !important;
-  height: calc(var(--taskbar-height) - 10px);
+  height: calc(var(--panel-height) - 10px);
 }
+
 
 #sysmenu {
   position: fixed;
@@ -543,9 +577,7 @@ border-radius: none;
   background: var(--bg-panel) !important;
   box-shadow: none;
   display: none;
-
-  
-  bottom: var(--taskbar-height);
+  bottom: var(--panel-height);
   top: auto;
   border-radius: 0px;
   border-top-right-radius: var(--radius-md);
@@ -555,29 +587,12 @@ border-radius: none;
   flex-direction: column;
 }
 
-body.taskbar-at-top #sysmenu {
-  top: var(--taskbar-height);	
+body.panel-at-top #sysmenu {
+  top: var(--panel-height);	
   border-radius: 0px;
   border-bottom-right-radius: var(--radius-md);
   bottom: auto;
   
-}
-
-/* --- Оновлений блок списку додатків --- */
-#appmenu {
-  max-height: 50vh;          /* Обмеження: половина висоти екрана */
-  overflow-y: auto;          /* Вмикаємо вертикальний скрол, коли треба */
-  overflow-x: hidden;         /* Завжди ховаємо горизонтальний скрол */
-  transition: all 0.5s ease;
-}
-
-/* Стильний тонкий скролбар для Infinity OS (опціонально) */
-
-#appmenu button {
-  border-bottom: 1px solid #aaaaaa55 !important;
-  width: 100%;               /* Щоб кнопки не стискалися при появі скролу */
-  text-align: left;          /* Рівняння тексту додатків */
-  transition: all 0.5s ease;
 }
 
 #sysmenu * {
@@ -590,6 +605,87 @@ body:not(.win_cla) #sysmenu *{
   text-shadow: 1px 1px 1px #000 !important;
 }
 
+/* Details/Summary styling */
+#sysmenu details {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+#sysmenu .sysmenu-actions *{
+  font-size: 15px;
+  cursor: pointer;
+
+}
+
+#sysmenu .sysmenu-actions svg {
+  filter: drop-shadow(1px 1px 5px rgb(0 0 0));
+}
+
+.appmenu-category {
+  user-select: none;
+  display: flex;
+  align-items: center;
+  color: var(--color-text-secondary);
+  transition: all 0.3s ease;
+}
+
+.appmenu-category:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Triangle indicator for expand/collapse */
+
+p.sort-asc::before{ content: '▲'; }
+p.sort-desc::before{ content: '▼'; }
+
+
+
+.appmenu-category::before {
+  content: "▶";
+  display: inline-block;
+  margin-left: px;
+  
+  font-size: 10px;
+}
+
+body:not(.win_cla).appmenu-category::before {
+  transition: transform 0.25s ease;
+}
+
+
+#sysmenu details[open] > .appmenu-category::before {
+  transform: rotate(90deg);
+}
+
+/* App containers */
+#appmenu-sys,
+#appmenu-user {
+  max-height: 25vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+
+#appmenu-list-sys[open]:has(~ #appmenu-list-user:not([open])) #appmenu-sys {
+  max-height: 50vh;
+}
+
+/* Scenario 2: ONLY User apps are open (System list is closed) */
+#appmenu-list-user[open]:has(~ #appmenu-list-sys:not([open])), /* if system is below */
+#appmenu-list-sys:not([open]) ~ #appmenu-list-user[open] #appmenu-user {
+  max-height: 50vh;
+}
+
+#appmenu-sys button,
+#appmenu-user button {
+  cursor: pointer;
+  border-bottom: 1px solid #aaaaaa55 !important;
+  width: 100%;
+  text-align: left;
+  transition: all 0.3s ease;
+  padding: 8px 15px !important;
+}
+
 footer > img {
   height: 25px;
   border-radius: var(--radius-full);
@@ -597,15 +693,25 @@ footer > img {
 
 .right {
   margin-right: 15px;
+  display: inline-flex;
+  align-items: center; /* Центрує батарею, звук та годинник строго по вертикалі */
+  gap: 10px; /* Додасть гарний однаковий відступ між іконками та годинником */
+  height: 100%; /* Розтягуємо на всю висоту панелі завдань */
 }
 
-vr {
-  display: inline;
-  width: 1px;
+.right span {
   height: 100%;
-  background: #00000050;
-  margin: 1px 0;
+  display: inline-flex;    /* Дозволяє спану працювати як flex-контейнер */
+  align-items: center;     /* Центрує SVG по вертикалі */
+  justify-content: center; /* Центрує SVG по горизонталі */
 }
+
+.right svg{
+    width: 20px;
+    height: 20px;
+}
+
+
 
 
 /* =============================================
@@ -614,7 +720,7 @@ vr {
 .notification {
   position: fixed;
   right: 15px;
-  bottom: calc(var(--taskbar-height) + 10px);
+  bottom: calc(var(--panel-height) + 10px);
   top: auto;
   min-width: 10%;
   max-width: 30vw;
@@ -635,21 +741,30 @@ color: var(--info-text, --color-text-secondary);
              slideOut 0.5s 2.0s ease-in forwards;
 }
 
-body.taskbar-at-top .notification {
-  top: calc(var(--taskbar-height) + 10px);
+body.panel-at-top .notification {
+  top: calc(var(--panel-height) + 10px);
   bottom: auto;
 }
 
 
+.popover{
+  position: fixed;
+            margin: 0;
+            padding: 4px 8px; 
+            font-size: 12px; 
+            border: none;
+            background: var(--info-bg, rgba(30, 30, 30, 0.5));
+            transform-origin: top left;
+  animation: grow 0.2s ease-out forwards;
 
-
-/* =============================================
-   CLOCK
-   ============================================= */
-.clock-time {
-  font-variation-settings: "wght" 100, "wdth" 50;
-  transition: all 0.5s ease;
+color: var(--info-text, --color-text-secondary);
+  padding: 10px 15px;
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(var(--blur, 10px));
+            pointer-events: none;
+            z-index: 999999;
 }
+
 
 @keyframes slideIn {
   to { opacity: 1; transform: translateX(0); }
@@ -679,3 +794,6 @@ body.taskbar-at-top .notification {
     }
 }
 
+.output-container *{
+  overflow-x:hidden !important;
+}

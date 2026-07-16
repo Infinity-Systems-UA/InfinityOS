@@ -270,10 +270,11 @@ function updateProcessList() {
 
     // 2. СИСТЕМНІ ВОРКЕРИ
     try {
-        const workers = window.parent.systemWorkers || [];
+        const workers = parent.getSysWorkers() || [];
         workers.forEach(w => {
             // Додаємо мітку [Worker] для наочності у диспетчері
-            addRow(w.id, `${w.url.split('/').pop()}`, 'worker', false);
+          let id = w.url ? w.url.split('/').pop() : ''
+            addRow(w.id, id, 'worker', false);
         });
     } catch (e) { console.error(e); }
 }
@@ -286,7 +287,7 @@ updateProcessList();
 // Локалізація
 document.getElementById('cpu_title').innerText = window.parent._("cpu") + ":";
 document.getElementById('processes_title').innerText = window.parent._("processes") + ":";
-
-window.addEventListener('beforeunload', () => processWorker.terminate());
+// pagehide is often more reliable than beforeunload inside frames
+window.addEventListener('pagehide', () => processWorker.terminate());
 
 </script>

@@ -16,8 +16,49 @@
 --invert-bg: rgba(30,30,30,0.5);
 }
 
+/* Приховуємо синій ефект виділення для всіх елементів */
+* {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0); /* Fallback для старих Android-рантаймів */
+}
+::selection {
+    background-color: var(--color-selection);
+    color: var(--color-selection-text, #fff) !important;
+}
+/* Обов'язково додаємо префікс для старих рушіїв WebKit */
+::-webkit-selection {
+    background-color: var(--color-selection) !important;
+    color: var(--color-selection-text, #fff) !important;
+}
 
 
+img, a {
+    -webkit-touch-callout: none;
+}
+
+/* 1. Reset and style the base input container */
+input[type="color"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  
+  background-color: transparent;
+  cursor: pointer;
+}
+
+/* 2. Remove default padding and borders in Chrome/Safari */
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+
+vr {
+  display: inline-block;   /* now width/height definitely apply */
+  align-self: stretch;     /* let it fill the flex container's cross-axis, instead of height:100% */
+  width: 1px;
+  background: #00000050;
+  margin: 1px 0;
+}
 
 /* --- ОСНОВА --- */
 
@@ -34,6 +75,8 @@ body:not(#body) {
 
 /* --- TOOLBAR --- */
 
+
+
 .toolbar, .footer {
     flex-shrink: 0;
     padding: 5px;
@@ -44,7 +87,7 @@ body:not(#body) {
     gap: 5px;
 position: sticky;
 }
-.toolbar{top:0;}
+.toolbar{top:0; overflow-x: auto; overflow-y: hidden;}
 .footer{bottom:0;}
 
 div[contenteditable="true"]>* {
@@ -81,8 +124,11 @@ table, tr, td, th{
    3. Зон редагування (openf, інпути)
 */
 
-*:not([class^="preview-container-"]):not([class^="preview-container-"] *):not([class^="output"]):not([class^="output"] *):not([contenteditable="true"]):not([contenteditable="true"] *) {
+*:not([class^="no-font"]):not([class^="no-font"] *) {
     font-family: var(--font);
+        -webkit-font-smoothing: subpixel-antialiased;
+    -moz-osx-font-smoothing: grayscale; /* Optional: good for Mac-like rendering */
+    text-rendering: optimizeLegibility;
 }
 
 
@@ -91,6 +137,8 @@ display:flex;
 align-items:center;margin-bottom:5px;padding:5px;border-bottom:1px dotted #eee;
 line-height: 1.0;
 }
+
+
 ul:not(.menu)[style*="list-style-type: none"] div,
 ul:not(.menu)[style*="list-style-type: none"] p,
 ul:not(.menu)[style*="list-style-type: none"] meter {
@@ -114,7 +162,8 @@ gap: 5px;
 /* Базові стилі елементів керування */
 button, 
 input[type="button"], 
-select {
+select,
+toggle-order-list::part(item) {
     background-color: var(--button-bg) ;
     color: var(--button-text);
     border: 1px solid var(--button-border);
@@ -124,7 +173,8 @@ select {
 }
 
 button:active, 
-input[type="button"]:active {
+input[type="button"]:active,
+toggle-order-list li.dragging::part(item) {
     background-color: var(--button-act-bg);
     border: 1px solid var(--button-act-border);
     
@@ -132,7 +182,8 @@ input[type="button"]:active {
 
 button:disabled, 
 input[type="button"]:disabled,
-select:disabled {
+select:disabled,
+toggle-order-list li.disabled::part(item) {
     background: rgba(0, 0, 0, 0.25);
     color: var(--button-shadow);
 }
@@ -194,8 +245,8 @@ progress::-webkit-progress-bar {
 }
 
 /* Колір самої заливки (Chrome, Safari, Edge) */
-progress::-webkit-progress-value {
-    background-color: royalblue; /* Можна замінити на var(--accent-color), якщо є */
+body:not(".win_cla")progress::-webkit-progress-value {
+    background-color: royalblue;
     border-radius: 0; /* Оскільки трек уже overflow: hidden, тут заокруглення не потрібне */
     transition: width 0.3s ease;
 }
@@ -216,9 +267,11 @@ progress::-moz-progress-bar {
 body.win_cla button,
 body.win_cla input[type="button"],
 body.win_cla select,
-body.win_cla .wb-control > * {
+body.win_cla .wb-control > *,
+.winbox.win_cla toggle-order-list::part(item),
+body.win_cla toggle-order-list::part(item) {
     outline: none; /* Windows Classic не використовував сучасний outline */
-    border-radius: 0;
+    border-radius: 0 !important;
     background-color: var(--button-bg);
     color: black;
 
@@ -249,8 +302,132 @@ body.win_cla .wb-control > *:active {
 .winbox.win_cla input[type="button"]:disabled,
 .winbox.win_cla .wb-control > *:disabled,
 
+body.win_cla toggle-order-list li.disabled::part(item), 
 body.win_cla button:disabled,
 body.win_cla input[type="button"]:disabled,
 body.win_cla .wb-control > *:disabled {
     box-shadow: inset 1px 1px 0px var(--button-hilight);
+}
+
+/* --- Спільна основа для обох елементів у класичному стилі --- */
+body.win_cla meter, 
+body.win_cla progress {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    
+    width: 90%;
+    min-width: 100px;
+    height: 15px;
+    margin-left: 5px;
+    border-radius: 0px;
+    box-sizing: border-box;
+
+    /* Втоплена класична рамка (Border + Shadow), щоб не зливатися з фоном */
+    background: var(--input-bg, #ffffff) !important;
+    border-left: 1px solid var(--button-shadow, #808080);
+    border-top: 1px solid var(--button-shadow, #808080);
+    border-right: 1px solid var(--button-hilight, #ffffff);
+    border-bottom: 1px solid var(--button-hilight, #ffffff);
+    box-shadow: 
+        inset 1px 1px 0px var(--button-dk-shadow, #000000), 
+        inset -1px -1px 0px var(--button-light, #c0c0c0);
+}
+
+/* --- ТЛО КОНТЕЙНЕРІВ (Webkit) --- */
+body.win_cla progress::-webkit-progress-bar,
+body.win_cla meter::-webkit-meter-bar {
+    background: transparent; /* Спирається на background самого елемента вище */
+    border: none;
+    border-radius: 0px !important;
+}
+
+/* --- СЕГМЕНТОВАНІ КУБИКИ (Chrome, Safari, Edge) --- */
+
+/* Заливка для Progress */
+body.win_cla progress::-webkit-progress-value {
+    border-radius: 0px;
+    background-color: transparent;
+    background-image: repeating-linear-gradient(to right,
+            var(--accent-color, #000080), /* Перший колір (дефолтний синій Windows Classic або акцент) */
+            var(--accent-color, #000080) 6px, /* Ширина кубика (6px) */
+            transparent 6px,                 /* Початок пропуску */
+            transparent 9px                  /* Кінець пропуску (пропуск 3px) */
+        );
+    background-size: auto 100%;
+}
+
+/* Заливка для Meter (Оптимальне/звичайне значення) */
+body.win_cla meter::-webkit-meter-optimum-value {
+    border-radius: 0px;
+    background-image: repeating-linear-gradient(to right,
+            #4caf50, #4caf50 6px, /* Зелені кубики за замовчуванням */
+            transparent 6px, transparent 9px
+        );
+    background-size: auto 100%;
+}
+
+/* Заливка для Meter (Попереджувальний стан - sub-optimum) */
+body.win_cla meter::-webkit-meter-suboptimum-value {
+    border-radius: 0px;
+    background-image: repeating-linear-gradient(to right,
+            #ffc107, #ffc107 6px, /* Жовті кубики */
+            transparent 6px, transparent 9px
+        );
+    background-size: auto 100%;
+}
+
+/* Заливка для Meter (Критичний стан - even-less) */
+body.win_cla meter::-webkit-meter-even-less-good-value {
+    border-radius: 0px;
+    background-image: repeating-linear-gradient(to right,
+            #f44336, #f44336 6px, /* Червоні кубики */
+            transparent 6px, transparent 9px
+        );
+    background-size: auto 100%;
+}
+
+/* --- СЕГМЕНТОВАНІ КУБИКИ (Firefox) --- */
+
+/* Firefox Progress */
+body.win_cla progress::-moz-progress-bar {
+    border-radius: 0px;
+    background-image: repeating-linear-gradient(to right,
+            var(--accent-color, #000080), var(--accent-color, #000080) 6px,
+            transparent 6px, transparent 9px);
+}
+
+/* Firefox Meter */
+body.win_cla meter::-moz-meter-bar {
+    border-radius: 0px;
+    background-image: repeating-linear-gradient(to right,
+            #4caf50, #4caf50 6px,
+            transparent 6px, transparent 9px);
+}
+
+
+
+/* Remove default browser borders and styling */
+input[type="color"] {
+  -webkit-appearance: none;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%; /* Makes it a circle */
+  cursor: pointer;
+}
+
+/* Style the inner color preview for Chrome/Edge/Safari */
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type="color"]::-webkit-color-swatch {
+  border: none;
+  border-radius: 50%;
+}
+
+/* Style the inner color preview for Firefox */
+input[type="color"]::-moz-color-swatch {
+  border: none;
+  border-radius: 50%;
 }

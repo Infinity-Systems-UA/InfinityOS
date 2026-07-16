@@ -17,7 +17,7 @@
 
         </div>
         <iframe id="webview" src="about:blank" style="flex-grow: 1; border:none;" 
-                sandbox="allow-scripts allow-forms allow-same-origin allow-modals"></iframe>
+                ></iframe>
     </div>
 
     <script>
@@ -74,15 +74,7 @@ const isFile = (url)=> url.match(fileRegex);
 
         
 
-        function openSettings(){
-            new parent.getWM(parent._("settings_title"), parent.getIcns().settings, {x: "center",y: "center",class: parent.getWBtheme()+" no-full",minheight: 700, height: 700, minwidth:500, width: 500, 
-                html: `
-                <input id="homepage" type="text" placeholder="start.htm"><br>
-                    <input id="downloads" type="text" placeholder="downloads/"><br>
-                    <textarea id="proxies" placeholder="${DEFAULT_PROXIES.map(p=> p+"/n")}"></textarea>
-
-            `})
-        }
+        
         
 window.open = function(url, target, features) {
     // 1. Перетворюємо відносний URL у абсолютний
@@ -253,9 +245,7 @@ Window = window;
                 url: new URL(url, location.href).href
             }, "*");
         },
-        get() {
-            return location.toString();
-        }
+get() { return URL(location.href).href;  }
     });
 })();
 
@@ -291,6 +281,13 @@ const nativeSetItem = localStorage.setItem.bind(localStorage);
 const nativeGetItem = localStorage.getItem.bind(localStorage);
 
 let permissionState = {}; 
+
+const w = window;
+Object.defineProperty(w, 'localStorage', {
+    get() {
+        throw new Error('localStorage disabled');
+    }
+});
 
 localStorage.setItem = function(key, value) {
   const host = new URL("${url}").hostname;
@@ -342,13 +339,19 @@ localStorage.setItem = function(key, value) {
 
 
 // Якщо додаток адаптовано під Infinity OS і він використовує await:
-alert = (...a) => parent.parent.alert(...a);
-prompt = async (...a) => await parent.parent.prompt(...a);
-confirm = async (...a) => await parent.parent.confirm(...a);
+alert = (...a)=>parent.parent.alert(...a);
+prompt = (...a)=>parent.parent.prompt(...a);
+confirm = (...a)=> parent.parent.confirm(...a);
+console = parent.console;
+Worker = parent.Worker;
+print = () => parent.parent.print();
+
+window.showOpenFilePicker = (...o)=> window.parent.parent.showOpenFilePicker(...o);
+window.showDirectoryPicker = (...o) => window.parent.parent.showDirectoryPicker(...o);
 
 window.console = parent.parent.console;
 window.Worker = parent.Worker;
-window.open = parent.window.open;
+window.open = parent.parent.window.open;
 
             window.onclick = function(e) {
                 const target = e.target.closest('a');
@@ -468,12 +471,13 @@ ${parent.getNotification()}
                 
                 // Успішно завантажено через проксі
                 setSecurityUI(true, url);
+                webview.sandbox="allow-scripts allow-forms allow-modals";
 
             } catch (err) {
                 console.warn("Proxy failed, falling back to direct load.", err.message);
                 webview.src = url;
                 
-                
+                if (!url.endsWith("html") && !url.endsWith("htm")) webview.sandbox="";
                 // Фолбек: пряме завантаження, знімаємо замок
                 setSecurityUI(false, url);
             }
@@ -498,8 +502,16 @@ ${parent.getNotification()}
 localStorage.setItem("browser_history", JSON.stringify(localHistory))
         }
         urlinp.addEventListener("keypress", (e) => { if (e.key === "Enter") gobtn.click(); });
+const params = new URLSearchParams(window.location.search);
 
-        loadPage(currentRealUrl);
+// 1. Get a specific parameter value
+const url0 = params.get('url');
+if (!url0){
+        loadPage(currentRealUrl);   
+}else{
+    loadPage(url0)
+}
+
     </script>
 </body>
 </html>

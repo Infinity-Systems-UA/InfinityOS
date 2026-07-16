@@ -19,6 +19,8 @@ p, h2 {
     padding-left: 10px;
 }
 
+
+
 #apps-list {
     display: flex;
     flex-wrap: wrap;
@@ -32,6 +34,7 @@ p, h2 {
   margin: auto;
   min-height: 100px;
   box-sizing:border-box;
+  
 }
 
 .mySlides {
@@ -54,9 +57,10 @@ animation: fadeEffect 0.6s ease;
   height: 300px;
   object-fit: contain;
   border: none;
-  border-radius: 10px;
+  border-radius: clamp(0px, (100vw - 600px) * 9999, 10px);
   background: #000;
 }
+
 
 .prev, .next {
   cursor: pointer;
@@ -125,6 +129,10 @@ main {
     flex-grow: 1;
     overflow-y: auto;
 }
+
+#sec1 {
+    transition: all 0.3s ease-in-out;
+}
 </style>
 </head>
 <body>
@@ -146,7 +154,7 @@ main {
 <div id="err">
     </div>
 
-<section>
+<section id="sec1">
 <h2 id="title-popular">Popular</h2>
 
 <div class="slideshow-container">
@@ -157,7 +165,7 @@ main {
 </div>
 </section>
 
-<section>
+<section id="sec2">
 <h2><span id="title-list">List</span> <button id="btn-copy-meta" onclick="copyMeta()">Copy meta</button><button id="btn-custom-repo" onclick="customRepo()"></button></h2>
 <div id="apps-list"></div>
 </section>
@@ -187,7 +195,7 @@ let META_URL = localStorage.getItem("StoreRepo") || "https://cosmic-dragon-a1ab6
 let BASE_URL = getRepoUrl(META_URL) ;
 
 
-const inp = parent.getCurrDLang() || parent.dateLang || "en";
+const inp = parent.getCurrDateLang() || parent.dateLang || "en";
 const lang = inp.split("-")[0].toLowerCase();
 
 // РОЗШИРЕНИЙ СЛОВНИК ПЕРЕКЛАДІВ ДЛЯ ІНТЕРФЕЙСУ STORE
@@ -199,6 +207,7 @@ const translations = {
         list: "Список додатків",
         copyMeta: "Копіювати метапакет",
         install: "Встановити",
+        uninstall: "Видалити",
 
         minOS: "Мінімальна версія ОС",
         deps: "Залежності",
@@ -222,7 +231,9 @@ const translations = {
         connectedSuccess: "Успішно підключено!",
         connectFailed: "Помилка підключення. Перевірте URL.",
         alertSuccess: "Успішно встановлено: ",
-        alertCopied: "Метапакет скопійовано в буфер."
+
+        alertCopied: "Метапакет скопійовано в буфер.",
+                alertCopied: "Метапакет скопійовано в буфер."
     },
     en: {
         all: "All",
@@ -231,6 +242,7 @@ const translations = {
         list: "List",
         copyMeta: "Copy meta",
         install: "Install",
+        uninstall: "Uninstall",
 
         minOS: "Minimal OS version",
         deps: "Dependencies",
@@ -254,7 +266,8 @@ const translations = {
         connectedSuccess: "Connected successfully!",
         connectFailed: "Failed to connect. Check URLs.",
         alertSuccess: "Successfully installed: ",
-        alertCopied: "Metapackage copied."
+        alertCopied: "Metapackage copied.",
+                alertCopied: "Metapackage copied."
     },
     fr: {
         all: "Tout",
@@ -263,6 +276,7 @@ const translations = {
         list: "Liste des applications",
         copyMeta: "Copier le méta",
         install: "Installer",
+        uninstall: "Désinstaller",
 
         minOS: "Version minimale de l'OS",
         deps: "Dépendances",
@@ -286,7 +300,8 @@ const translations = {
         connectedSuccess: "Connecté avec succès!",
         connectFailed: "Échec de la connexion. Vérifiez les URL.",
         alertSuccess: "Installé avec succès: ",
-        alertCopied: "Métapaquet copié."
+        alertCopied: "Métapaquet copié.",
+                alertSuccessRemove: "Désinstallé avec succès: ",  // ← ADD THIS
     },
     ru: {
         all: "Все",
@@ -295,6 +310,7 @@ const translations = {
         list: "Список приложений",
         copyMeta: "Копировать метапакет",
         install: "Установить",
+        uninstall: "Удалить",
 
         minOS: "Минимальная версия ОС",
         deps: "Зависимости",
@@ -318,7 +334,8 @@ const translations = {
         connectedSuccess: "Успешно подключено!",
         connectFailed: "Ошибка подключения. Проверьте URL.",
         alertSuccess: "Успешно установлено: ",
-        alertCopied: "Метапакет скопирован."
+        alertCopied: "Метапакет скопирован.",
+                alertSuccessRemove: "Успешно удалено: ",  // ← ADD THIS
     },
     pl: {
         all: "Wszystko",
@@ -327,6 +344,7 @@ const translations = {
         list: "Lista aplikacji",
         copyMeta: "Kopiuj meta",
         install: "Instaluj",
+        uninstall: "Odinstaluj",
 
         minOS: "Minimalna wersja OS",
         deps: "Zależności",
@@ -350,10 +368,53 @@ const translations = {
         connectedSuccess: "Połączono pomyślnie!",
         connectFailed: "Nie udało się połączyć. Sprawdź adresy URL.",
         alertSuccess: "Pomyślnie zainstalowano: ",
-        alertCopied: "Metapaczka skopiowana."
+        alertCopied: "Metapaczka skopiowana.",
+        alertSuccessRemove: "Pomyślnie odinstalowano: ",  // ← ADD THIS
     }
 };
 
+function isInstalled(app) {
+    const appName = (app.name || "").trim().toLowerCase();
+    
+    // 1. Extract base name from the entry path
+    const baseName = (app.entry || "")
+        .split("/")
+        .pop()
+        .split(".")[0]
+        .toLowerCase();
+
+    // 2. Map app types to their proper extensions
+
+
+    // Fallback to the entry path's own extension, defaulting to .js if none exists
+
+
+    const ext = '.' + app.type
+    const fileName = baseName + ext;
+
+    // 3. Check File System directly (Independent of getApps)
+    const fs = parent.getFs() || [];
+    const fileExists = fs.some(f => (f.name || "").toLowerCase() === fileName);
+    const fsNames = new Set(fs.map(f => (f.name || "").toLowerCase()));
+
+    if (fileExists || fsNames.has(appName) || fsNames.has(baseName)) {
+        return true;
+    }
+
+    // 4. Check registered apps list
+    return (parent.getApps() || []).some(a => {
+        if (a.system) return false;
+        
+        const name = (a.name || "").trim().toLowerCase();
+        const path = (a.path || "").toLowerCase();
+        
+        return (
+            name === appName ||
+            (path && path.includes(appName)) ||
+            (path && !baseName.includes("index") && path.includes(baseName))
+        );
+    });
+}
 const currentStrings = translations[lang] || translations.en;
 
 // Функція локалізації статичних HTML елементів
@@ -462,19 +523,23 @@ const start = async () => {
         
         if (!Array.isArray(apps)) {
             ret = "Invalid meta format";
-            parent.console.error(ret);
+            return parent.console.error(ret);
+
         }
-        
+        if (response.ok){
         update();
         ret = "Found: " + apps.length;
-        parent?.console.log?.("Found: " + apps.length);
         err.style.display = "none";
+        }
+
+
         
     } catch (e) {
         console.error("Store load failed:", e);
         ret = "Store load failed:" + e;
         showTrafficLimitUI(); // Повертаємо вікно кастомного репо у разі падіння хоста
     }
+    parent.console.log("[Infinity Store] "+ ret);
     return ret;
 }
 
@@ -486,6 +551,7 @@ const slidesWrapper = document.getElementById("slides-wrapper");
 const dialog = document.getElementById("app-dialog");
 const dialogContent = document.getElementById("dialog-content");
 const currentOS = parent.getDevProps().os.version;
+const currentRam = parseInt(parent.getDevProps().memory);
 
 function formatVersion(rawDate) {
     const day = rawDate.slice(0, 2);
@@ -494,8 +560,19 @@ function formatVersion(rawDate) {
     return `${year}${month}${day}`;
 }
 
+function getMinRam(app) {
+    if (!app?.tester) return 0; // Захист від undefined
+    for (const str of app.tester.split(' ')) {
+        if (str.includes('GB')) {
+            return parseInt(str); 
+        }
+    }
+    
+    return 0;
+}
+
 function isCompatible(app) {
-    return formatVersion(currentOS) >= formatVersion(app.minOS);
+    return (formatVersion(currentOS) >= formatVersion(app.minOS) ) && (currentRam >= getMinRam(app));
 }
 
 function computeRating(app) {
@@ -547,6 +624,61 @@ function computeRating(app) {
 apps.find(a => a.name == app.name && a.desc == app.desc).rating = Math.min(5, Math.max(1, Math.round(score * 2) / 2));
     return Math.min(5, Math.max(1, Math.round(score * 2) / 2));
 }
+async function uninstall(app) {
+    const entryName = (app.entry || "")
+        .split("/")
+        .pop()
+        .split(".")[0] // Strip extensions cleanly
+        .toLowerCase();
+
+    const appName = (app.name || "").trim().toLowerCase();
+
+    // 1. Process HTML type via registered app API
+    if (app.type === 'html') {
+        const appInstance = parent.getApps().find(a => {
+            if (a.system) return false;
+            const name = (a.name || "").trim().toLowerCase();
+            const path = (a.path || "").toLowerCase();
+
+            return (
+                name === appName ||
+                (path && path.includes(appName)) ||
+                (path && entryName !== "index" && path.includes(entryName))
+            );
+        });
+
+        if (appInstance) {
+            await parent.deleteApp(appInstance);
+        }
+    } 
+    // 2. Process all non-HTML types strictly in the file system
+    else {
+        // Build the dynamic file name directly using app.type as requested
+        const ext = app.type ? `.${app.type.toLowerCase()}` : '.js';
+        const targetFileName = entryName + ext;
+
+        const f = parent.getFs().find(file => {
+            const currentFileName = (file.name || "").toLowerCase();
+            return (
+                currentFileName === targetFileName ||
+                currentFileName.includes(appName) ||
+                currentFileName.includes(entryName)
+            );
+        });
+
+        if (f) {
+            await parent.deleteFile(f.name);
+        }
+    }
+
+    // 3. Fire the success notification & refresh the store UI anyway
+    new parent.Notification("Infinity Store", {
+        body: currentStrings.alertSuccessRemove + app.name,
+        icon: parent.getIcns().store
+    });
+
+    renderApps(apps);
+}
 
 function renderStars(rating, showNumber = 1) {
     let html = '<span style="font-size:15px;letter-spacing:1px;line-height:1;">';
@@ -570,22 +702,45 @@ function createCard(app) {
     const card = document.createElement("div");
     card.className = "app-card";
 
+    const installed = isInstalled(app);
+    apps.find(a => a.name == app.name && a.desc == app.desc).installed = installed;
+    const compatible = isCompatible(app);
+
     card.innerHTML = `
-        <p style="white-space: nowrap; font-weight: bold; font-size: 20px;">${app.name || ""}</p>
-        <small style=' display:flex;justify-content: space-between;'>${app.developer || ""} ${renderStars(computeRating(app),0)}</small>
+        <p style="white-space: nowrap; font-weight: bold; font-size: 20px;">
+            ${app.name || ""}
+        </p>
+
+        <small style="display:flex; justify-content:space-between;">
+            ${app.developer || ""} ${renderStars(computeRating(app), 0)}
+        </small>
+
         <br>
+
         <button class="inst">${currentStrings.install}</button>
+        <button class="uninst">${currentStrings.uninstall}</button>
     `;
-    
-    if (!isCompatible(app)){
-        card.querySelector("button").disabled = true;
-    }
+
+    const instBtn = card.querySelector(".inst");
+    const uninstBtn = card.querySelector(".uninst");
+
+    if (!compatible) instBtn.disabled = true;
+
+    instBtn.style.display = installed ? "none" : "";
+    uninstBtn.style.display = installed ? "" : "none";
+
     card.onclick = () => openDialog(app);
 
-    card.querySelector("button").onclick = (e) => {
+    instBtn.onclick = (e) => {
         e.stopPropagation();
         install(app.name);
     };
+
+uninstBtn.onclick = async (e) => {
+    e.stopPropagation();
+
+    uninstall(app)
+}
 
     return card;
 }
@@ -594,7 +749,7 @@ function renderApps(list) {
     appsContainer.innerHTML = "";
     try {
         list.forEach(app => appsContainer.appendChild(createCard(app)));
-    } catch(e) {}
+    } catch(e) {parent.console.error(e.message)}
 }
 
 /* Carousel */
@@ -621,36 +776,68 @@ function renderCarousel(list) {
 function openDialog(app) {
     dialog.style.display = "flex";
 
-    dialogContent.innerHTML = `
+    const installed = isInstalled(app);
+    const compatible = isCompatible(app);
+    const minRam = getMinRam(app);
+
+    // 1. Починаємо збирати рядок шаблону
+    let html = `
         <h2 style="user-select: text;">${app.name || ""}</h2>
         <small>${app.developer || ""}</small>
+        <br>
+        <button class="inst">${currentStrings.install}</button>
+        <button class="uninst">${currentStrings.uninstall}</button>
+
         <p style="user-select: text;">${app.desc || ""}</p>
         <p><b>${currentStrings.minOS}:</b> ${app.minOS || "00000000"}</p>
-        <button class="inst">${currentStrings.install}</button>
-        <hr>
+    `;
 
+    // 2. Додаємо RAM та депи прямо в рядок
+    if (app.tester && app.tester.includes('GB') && minRam > 0) {
+        html += `<p><b>${currentStrings.minRam}:</b> ${minRam}GB</p>`;
+    }
+    
+    if (app.deps && app.deps.length > 0) {
+        html += `<p><b>${currentStrings.deps}:</b> ${app.deps.join(", ")}</p>`;
+    }
+
+    // 3. Додаємо підвал картки
+    html += `
+        <hr>
         <p>${renderStars(computeRating(app))}</p>
         <p>${app.tester || ""}</p>
-        
     `;
-    
-    if (app.deps != null){
-        dialogContent.innerHTML += `
-        <p><b>${currentStrings.deps}:</b> ${app.deps.join(", ")}</p>
-        `;
-    }
-    
-    if (!isCompatible(app)){
-        dialogContent.querySelector("button").disabled = true;
-    }
 
-    dialogContent.querySelector("button").onclick = (e) => {
+    // 4. ОДИН РАЗ оновлюємо DOM
+    dialogContent.innerHTML = html;
+
+    // 5. Тепер, коли DOM стабільний, шукаємо ТІ САМІ КНОПКИ, що бачить користувач
+    const instBtn = dialogContent.querySelector(".inst");
+    const uninstBtn = dialogContent.querySelector(".uninst");
+
+    if (!compatible) instBtn.disabled = true;
+
+    // Керування видимістю тепер відпрацює як годинник
+    instBtn.style.display = installed ? "none" : "";
+    uninstBtn.style.display = installed ? "" : "none";
+
+    // Надійно вішаємо кліки на живі елементи
+    instBtn.onclick = (e) => {
         e.stopPropagation();
         install(app.name);
     };
+
+    uninstBtn.onclick = async (e) => {
+        e.stopPropagation();
+        uninstall(app);
+    };
+
+    dialog.onclick = (e) => {
+        if (e.target === dialog) dialog.style.display = "none";
+    };
 }
 
-dialog.onclick = (e) => {
+dialog.onclick = (e) => {d
     if (e.target === dialog) dialog.style.display = "none";
 };
 
@@ -667,9 +854,11 @@ function filterApps() {
             (mode === "all" || app.type === mode) &&
             app.name.toLowerCase().includes(query)
         );
+                 modeSelect.disabled = 0;
     } catch(e) {
         modeSelect.disabled = 1;
         a = apps;
+        return filterApps();
     }
     return a;
 }
@@ -706,28 +895,34 @@ async function install(name) {
 
         if (app.type === "js") {
             const fileName = app.entry.split("/").pop().split(".")[0].toLowerCase() + '.js';
-            const fileExists = parent.getFs().find(f => f.name == fileName);
+            const fileExists = parent.getFs().find(f => f.name.toLowerCase() == fileName);
+            console.warn("JS got from entry: "+ fileName + fileExists)
             if (fileExists) {
                 let autoload = [];
-                const autoloadString = localStorage.getItem('infinity_os_autoload');
+                const autoloadString = localStorage.getItem('autoload') || "[]";
                 
                 if (autoloadString) {
                     try {
                         autoload = JSON.parse(autoloadString);
                     } catch (e) {
-                        console.error("Autoload parse error:", e);
+                        console.error("Autoload parse error:", e.message);
                         autoload = [];
                     }
                 }
+                console.log(autoload)
 
                 if (!autoload.includes(fileName)) {
-                    autoload.push(fileName);
-                    localStorage.setItem('infinity_os_autoload', JSON.stringify(autoload));
+                    autoload.push(fileExists.name);
+                    localStorage.setItem('autoload', JSON.stringify(autoload));
                 }
             }
+        }else if (app.type == "html"){
+            await parent.registerApps()
+            renderApps(apps)
         }
 
-        parent.alert(currentStrings.alertSuccess + app.name);
+       new parent.Notification("Infinity Store",{body:currentStrings.alertSuccess + app.name, icon: parent.getIcns().store});
+       
         return 1;
 
     } catch (e) {
@@ -784,6 +979,8 @@ document.addEventListener('keydown', async (event) => {
         await copyMeta();
     }
 });
+
+setInterval(() =>{renderApps(filterApps(apps))}, 500)
 </script>
 </body>
 </html>
