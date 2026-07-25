@@ -6,18 +6,14 @@
 # Quick Start
 
 ## With existing OS
-1. Clone repository.
-2. Create .sh file.
-3. Paste [this](https://gist.github.com/Infinity-Systems-UA/f9b0300699e233a4877d9bb5ee208bce) to make Perepherias work properly in Infinity OS.
-4. You can edit path to the Infinity OS folder:
-```
-cd ~/Documents/InfinityOS/
-```
-5. Install [chromium](https://www.chromium.org/getting-involved/download-chromium/) or change browser executable to any other chromium-based browser.
-6. Run the script!
+1. Clone this repository to your local machine.
+2. Download or copy our peripheral permissions setup script from [GitHub Gist](https://gist.github.com/Infinity-Systems-UA/f9b0300699e233a4877d9bb5ee208bce).
+3. Save it as `start.sh` inside the project folder.
+4. Update the path in `start.sh` if your folder location differs (`cd ~/Documents/InfinityOS/`).
+5. Ensure a Chromium-based browser is installed, make the script executable (`chmod +x start.sh`), and run it!
 
 ## Bare metal: ISO
-1. Download ISO from releases.
+1. Download ISO from [GitHub releases](https://github.com/Infinity-Systems-UA/InfinityOS/releases).
 2. Write it to the USB or other storage.
 3. (optional) Set up persistence by creating separate partition and setting it up.
 4. Boot!
