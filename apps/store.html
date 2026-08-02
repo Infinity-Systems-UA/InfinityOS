@@ -6,178 +6,379 @@
 <link rel="stylesheet" href="global.css">
 
 <style>
-    body{user-select: none; overflow-x: hidden;}
-.app-card {
-    border-radius: 15px;
-    padding: 10px;
-    margin: 5px;
-    cursor: pointer;
-    border: solid 1px #aaa;
+    /* 1. Reset sizing across all elements */
+*, *::before, *::after {
+    box-sizing: border-box;
 }
-
-p, h2 {
-    padding-left: 10px;
-}
-
-
-
-#apps-list {
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
     display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
+    flex-direction: column;
 }
+  .app-card {
+      border-radius: 15px;
+      padding: 10px;
+      margin: 5px;
+      cursor: pointer;
+      border: solid 1px #aaa;
+  }
 
-/* Carousel */
-.slideshow-container {
-  max-width: 600px;
-  position: relative;
-  margin: auto;
-  min-height: 100px;
-  box-sizing:border-box;
-  
-}
+  p, h2 {
+      padding-left: 10px;
+  }
 
-.mySlides {
-  display: none;
-    transition: transform 0.4s ease;
-    height: 300px;
-    z-index: 0;
-    align-items: center;
-  justify-content: center;
-animation: fadeEffect 0.6s ease;
-}
+  #apps-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+  }
 
-@keyframes fadeEffect {
-    from { opacity: 0.5;}
-    to { opacity: 1;}
-}
+  /* Carousel */
+  .slideshow-container {
+      max-width: 600px;
+      position: relative;
+      margin: auto;
+      min-height: 100px;
+      box-sizing: border-box;
+  }
 
-.mySlides img {
-  width: 100%;
-  height: 300px;
-  object-fit: contain;
-  border: none;
-  border-radius: clamp(0px, (100vw - 600px) * 9999, 10px);
-  background: #000;
-}
+  .mySlides {
+      display: none;
+      transition: transform 0.4s ease;
+      height: 300px;
+      z-index: 0;
+      align-items: center;
+      justify-content: center;
+      animation: fadeEffect 0.6s ease;
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      background: #000;
+      border-radius:10px;
+  }
 
+  @keyframes fadeEffect {
+      from { opacity: 0.5; }
+      to { opacity: 1; }
+  }
 
-.prev, .next {
-  cursor: pointer;
-  position: absolute;
-  top: 50%;
-  
-  padding: 15px;
-  color: white;
-  font-weight: bold;
-  font-size: 15px;
-}
+  .mySlides .bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: blur(20px);
+      transform: scale(1.1);
+      opacity: 0.7;
+      border-radius: clamp(0px, (100vw - 600px) * 9999, 10px);
+  }
 
-.next {
-  right: 0;
-}
+  .mySlides .fg {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+  }
 
+  .prev, .next {
+      cursor: pointer;
+      position: absolute;
+      top: 50%;
+      padding: 15px;
+      color: white;
+      font-weight: bold;
+      font-size: 15px;
+  }
 
-/* Repository Limits / Error */
-#err{
-    display: none;
-    position: absolute;
-    top:0;
-    left: 0;
-    width: 100%;
+  .next {
+      right: 0;
+  }
+
+  /* Repository Limits / Error */
+  #err {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--toolbar-bg);
+      z-index: 10;
+      padding-top: 10px;
+      text-align: center;
+  }
+
+  /* Dialog */
+  #app-dialog {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+  }
+
+  .dialog-content {
+      background: var(--toolbar-bg);
+      padding: 20px;
+      border-radius: 15px;
+      width: 320px;
+  }
+
+  /* ===== LAYOUT FIXES ===== */
+  body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+  }
+
+  .toolbar {
+      flex-shrink: 0;
+      display: flex;
+      gap: 5px;
+      padding: 5px;
+  }
+
+  /* Container wrapper takes remaining vertical space without overflow */
+  #sett_app {
+      flex-grow: 1;
+      min-height: 0;
+      width: 100%;
+      overflow: hidden;
+      container-type: inline-size;
+  }
+
+  main {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      display: grid;
+      grid-template-columns: clamp(140px, 28cqi, 240px) 1fr;
+      grid-template-rows: 100%;
+      grid-template-areas: "sidebar content";
+      overflow: hidden;
+      transition: grid-template-columns 0.25s ease;
+  }
+
+@container (width < 700px) {
+      main.sidebar-collapsed {
+          grid-template-columns: 50px 1fr; /* Трохи збільшили для зручності іконки ≡ */
+      }
+
+      main.sidebar-collapsed .settings-toolbar {
+          padding: 5px;
+          align-items: center;
+      }
+
+      main.sidebar-collapsed .settings-toolbar .sidebar-tab,
+      main.sidebar-collapsed .settings-toolbar .sidebar-separator {
+          display: none !important; /* Гарантовано ховаємо текст */
+      }
+
+      .sidebar-handle {
+          display: block !important;
+          width: 100%;
+          padding: 8px 0;
+          cursor: pointer;
+          text-align: center;
+      }
+  }
+
+  /* ===== SIDEBAR ===== */
+  .settings-toolbar {
+      height: 100%;
+      grid-area: sidebar;
+      border-right: 1px solid #ccc;
+      background: var(--toolbar-bg);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      transition: 0.3s;
+      overflow-y: auto;
+      overflow-x: hidden;
+  }
+
+  .column {
+      margin-top: 15px; 
+      display: flex; 
+      justify-content: flex-start; 
+      gap: 10px; 
+      width: max-content;
+  }
+
+  .sidebar-handle {
+      display: none;
+  }
+
+  .sidebar-tab {
+
+  }
+
+  .sidebar-tab:before {
+      content: "» ";
+  }
+
+  .sidebar-tab:hover {
+      text-decoration: underline;
+  }
+
+  .sidebar-tab.active {
+      font-weight: bold;
+      color: var(--accent-color, #4a9eff);
+  }
+
+  .sidebar-separator {
+      border-top: 1px solid var(--input-border);
+      margin: 6px 0;
+  }
+
+  /* ===== CONTENT ===== */
+.content-container {
+    grid-area: content;
     height: 100%;
-    background: #fff;
-    z-index: 10;
-    padding-top: 10px;
+    min-height: 0; /* Prevents flex/grid children from overflowing parent */
+    overflow-y: auto;
+    padding: 15px;
+    background: var(--bg-color);
+}
+
+  #sec1 {
+      transition: all 0.3s ease-in-out;
+  }
+
+  .page {
+      margin-bottom: 15px;
+  }
+
+  /* Responsive handle visible on small containers even if not collapsed */
+  @container (width < 700px) {
+      .sidebar-handle {
+          display: block;
+      }
+  }
+            .close-btn {
+                position: absolute;
+                top: 15px;
+                right: 20px;
+                font-size: 1.5rem;
+                color: var(--muted);
+                cursor: pointer;
+            }
+
+
+            .dev-apps-row {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 10px 2px 4px;
+    scrollbar-width: thin;
+}
+
+.dev-app-mini {
+    flex: 0 0 auto;
+    width: 90px;
+    cursor: pointer;
     text-align: center;
 }
 
-/* Dialog */
-#app-dialog {
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.6);
-    display: none;
-    justify-content: center;
+.dev-app-mini .mini-thumb {
+    width: 90px;
+    height: 90px;
+    border-radius: 12px;
+    background: #000;
+    object-fit: cover;
+    display: block;
+    border: 1px solid #aaa;
+}
+
+.dev-app-mini .mini-thumb.placeholder {
+    display: flex;
     align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--muted, #888);
+    background: var(--toolbar-bg);
 }
 
-.dialog-content {
-    background: white;
-    padding: 20px;
-    border-radius: 15px;
-    width: 320px;
-}
-
-body {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    margin: 0;
-    padding: 0;
+.dev-app-mini small {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
     overflow: hidden;
-}
-
-.toolbar {
-    flex-shrink: 0;
-    display: flex;
-    gap: 5px;
-    padding: 5px;
-}
-
-main {
-    flex-grow: 1;
-    overflow-y: auto;
-}
-
-#sec1 {
-    transition: all 0.3s ease-in-out;
+    text-overflow: ellipsis;
+    padding-left: 0;
 }
 </style>
-</head>
+
 <body>
 
 <div class="toolbar">
-    <select id="mode-select">
-        <option value="all">All</option>
-        <option value="html">HTML</option>
-        <option value="js">JS</option>
-        <option value="node">NodeJS</option>
-        <option value="theme">Theme</option>
-    </select>
     <input type="search" id="search-input" style="flex-grow:1;">
     <button id="search-btn" onclick="update()">Search</button>
 </div>
 
-<main>
+<div id="sett_app">
+  <main id="main_app">
+    <!-- SIDEBAR -->
+    <div class="settings-toolbar" id="storeSidebar">
+        <button class="sidebar-handle" id="sidebarToggle" onclick="document.getElementById('main_app').classList.toggle('sidebar-collapsed')">≡</button>
 
-<div id="err">
+        <a class="sidebar-tab type-tab active" data-type="all" id="tab-type-all">All</a>
+        <div class="sidebar-separator"></div>
+        <a class="sidebar-tab type-tab" data-type="html" id="tab-type-html">HTML</a>
+        <a class="sidebar-tab type-tab" data-type="js" id="tab-type-js">JS</a>
+        <a class="sidebar-tab type-tab" data-type="node" id="tab-type-node">NodeJS</a>
+        <a class="sidebar-tab type-tab" data-type="theme" id="tab-type-theme">Theme</a>
+        <a class="sidebar-tab type-tab" data-type="wasm" id="tab-type-wasm">WASM</a>
     </div>
 
-<section id="sec1">
-<h2 id="title-popular">Popular</h2>
+    <div class="content-container">
+        <div id="err"></div>
 
-<div class="slideshow-container">
-    <div id="slides-wrapper"></div>
+        <section id="sec1">
+          <h2 id="title-popular">Popular</h2>
+          <div class="slideshow-container">
+              <div id="slides-wrapper"></div>
+              <a class="prev" onclick="plusSlides(-1)">❮</a>
+              <a class="next" onclick="plusSlides(1)">❯</a>
+          </div>
+        </section>
 
-    <a class="prev" onclick="plusSlides(-1)">❮</a>
-    <a class="next" onclick="plusSlides(1)">❯</a>
+        <section id="sec2">
+          <h2 style="display: flex; gap: 10px;">
+            <button id="btn-copy-meta" onclick="copyMeta()">Copy meta</button>
+            <button id="btn-custom-repo" onclick="customRepo()"></button>
+          </h2>
+          <div id="apps-list"></div>
+        </section>
+    </div>
+  </main>
 </div>
-</section>
-
-<section id="sec2">
-<h2><span id="title-list">List</span> <button id="btn-copy-meta" onclick="copyMeta()">Copy meta</button><button id="btn-custom-repo" onclick="customRepo()"></button></h2>
-<div id="apps-list"></div>
-</section>
-
-</main>
 
 <div id="app-dialog">
+                <span class="close-btn" onclick='dialog.style.display = "none"'>&times;</span>
     <div class="dialog-content" id="dialog-content"></div>
 </div>
 
 <script>
 let apps;
+let currentMode = "all";
 const err = document.getElementById("err");
 
 function getRepoUrl(metaUrl) {
@@ -210,6 +411,7 @@ const translations = {
         uninstall: "Видалити",
 
         minOS: "Мінімальна версія ОС",
+        minRam: "Мінімальний обсяг ОЗП",
         deps: "Залежності",
         searchPlaceholder: "Пошук додатків...",
         repoUnavailable: "Репозиторій недоступний",
@@ -233,7 +435,9 @@ const translations = {
         alertSuccess: "Успішно встановлено: ",
 
         alertCopied: "Метапакет скопійовано в буфер.",
-                alertCopied: "Метапакет скопійовано в буфер."
+                alertCopied: "Метапакет скопійовано в буфер.",
+                 alertSuccessRemove: "Успішно видалено: ",  // ← ADD THIS
+                 moreFromDev: "Більше від цього розробника",
     },
     en: {
         all: "All",
@@ -245,6 +449,7 @@ const translations = {
         uninstall: "Uninstall",
 
         minOS: "Minimal OS version",
+        minRam: "Minimum RAM",
         deps: "Dependencies",
         searchPlaceholder: "Search apps...",
         repoUnavailable: "Repository unavailable",
@@ -267,7 +472,8 @@ const translations = {
         connectFailed: "Failed to connect. Check URLs.",
         alertSuccess: "Successfully installed: ",
         alertCopied: "Metapackage copied.",
-                alertCopied: "Metapackage copied."
+                alertSuccessRemove: "Successfully uninstalled: ",  // ← ADD THIS
+                moreFromDev: "More from this developer",
     },
     fr: {
         all: "Tout",
@@ -279,6 +485,7 @@ const translations = {
         uninstall: "Désinstaller",
 
         minOS: "Version minimale de l'OS",
+        minRam: "RAM minimale",
         deps: "Dépendances",
         searchPlaceholder: "Rechercher des applications...",
         repoUnavailable: "Dépôt indisponible",
@@ -302,6 +509,7 @@ const translations = {
         alertSuccess: "Installé avec succès: ",
         alertCopied: "Métapaquet copié.",
                 alertSuccessRemove: "Désinstallé avec succès: ",  // ← ADD THIS
+                moreFromDev: "Plus de ce développeur",
     },
     ru: {
         all: "Все",
@@ -313,6 +521,7 @@ const translations = {
         uninstall: "Удалить",
 
         minOS: "Минимальная версия ОС",
+        minRam: "Минимальный объём ОЗУ",
         deps: "Зависимости",
         searchPlaceholder: "Поиск приложений...",
         repoUnavailable: "Репозиторий недоступен",
@@ -336,6 +545,7 @@ const translations = {
         alertSuccess: "Успешно установлено: ",
         alertCopied: "Метапакет скопирован.",
                 alertSuccessRemove: "Успешно удалено: ",  // ← ADD THIS
+                moreFromDev: "Больше от этого разработчика",
     },
     pl: {
         all: "Wszystko",
@@ -347,6 +557,7 @@ const translations = {
         uninstall: "Odinstaluj",
 
         minOS: "Minimalna wersja OS",
+        minRam: "Minimalna ilość RAM",
         deps: "Zależności",
         searchPlaceholder: "Szukaj aplikacji...",
         repoUnavailable: "Repozytorium niedostępne",
@@ -370,6 +581,7 @@ const translations = {
         alertSuccess: "Pomyślnie zainstalowano: ",
         alertCopied: "Metapaczka skopiowana.",
         alertSuccessRemove: "Pomyślnie odinstalowano: ",  // ← ADD THIS
+        moreFromDev: "Więcej od tego dewelopera",
     }
 };
 
@@ -419,13 +631,17 @@ const currentStrings = translations[lang] || translations.en;
 
 // Функція локалізації статичних HTML елементів
 function applyDOMTranslations() {
-    document.getElementById("mode-select").options[0].text = currentStrings.all;
     document.getElementById("search-input").placeholder = currentStrings.searchPlaceholder;
     document.getElementById("search-btn").innerText = currentStrings.search;
     document.getElementById("title-popular").innerText = currentStrings.popular;
-    document.getElementById("title-list").innerText = currentStrings.list;
+    //document.getElementById("title-list").innerText = currentStrings.list;
     document.getElementById("btn-copy-meta").innerText = currentStrings.copyMeta;
     document.getElementById("btn-custom-repo").innerText = currentStrings.connectCustom;
+
+
+
+    // Type filter tabs (only "All" is a translated word — the rest are technical labels)
+    document.getElementById("tab-type-all").innerText = currentStrings.all;
 }
 
 function showNoInternetUI() {
@@ -604,6 +820,7 @@ function computeRating(app) {
     if (t.includes("unsupported on mobile"))                score -= 0.5;
     if (t.includes("sometimes") || t.includes("may lag"))   score -= 0.5;
     if (t.includes("large files may lag"))                  score -= 0.25;
+    if (t.includes("telemetry"))                         score -= 4.0; // Even if i was deleted, but original dev implemented it.
 
      const allVersions = allApps.map(a => parseInt(formatVersion(a.minOS || "99999999"), 10));
     const minVer = Math.min(...allVersions);
@@ -673,7 +890,7 @@ async function uninstall(app) {
 
     // 3. Fire the success notification & refresh the store UI anyway
     new parent.Notification("Infinity Store", {
-        body: currentStrings.alertSuccessRemove + app.name,
+        body: (currentStrings.alertSuccessRemove) + app.name,
         icon: parent.getIcns().store
     });
 
@@ -752,7 +969,55 @@ function renderApps(list) {
     } catch(e) {parent.console.error(e.message)}
 }
 
-/* Carousel */
+function renderDevAppsRow(app) {
+    if (!app.developer) return "";
+
+    const others = apps.filter(a =>
+        a.developer === app.developer);
+
+    if (!others.length == 1) return "";
+
+    return `
+        <hr>
+        <p><b>${currentStrings.moreFromDev}</b></p>
+        <div class="dev-apps-row" id="dev-apps-row"></div>
+    `;
+}
+
+function populateDevAppsRow(app) {
+    const row = document.getElementById("dev-apps-row");
+    if (!row) return;
+
+    const others = apps.filter(a =>
+        a.developer === app.developer
+    );
+    
+
+    row.innerHTML = "";
+    others.forEach(other => {
+        const mini = document.createElement("div");
+        mini.className = "dev-app-mini";
+
+        const hasBanner = other.banner && other.banner.trim() !== "";
+        const src = hasBanner
+            ? (other.banner.includes("://") ? other.banner : BASE_URL + other.banner)
+            : "";
+
+        mini.innerHTML = hasBanner
+            ? `<img class="mini-thumb" src="${src}" alt="">`
+            : `<div class="mini-thumb placeholder">${(other.name || "?").charAt(0).toUpperCase()}</div>`;
+
+        mini.innerHTML += `<small>${other.name || ""}</small>`;
+
+        mini.onclick = (e) => {
+            e.stopPropagation();
+            openDialog(other);
+        };
+
+        row.appendChild(mini);
+    });
+}
+
 function renderCarousel(list) {
     slidesWrapper.innerHTML = "";
 
@@ -760,8 +1025,13 @@ function renderCarousel(list) {
         const slide = document.createElement("div");
         slide.className = "mySlides";
 
+        const src = app.banner.includes("://")
+            ? app.banner
+            : BASE_URL + app.banner;
+
         slide.innerHTML = `
-            <img alt="${app.name || ""}" title="${app.name || ""}" src="${(app.banner.includes("://") ? app.banner : BASE_URL+app.banner) || ""}">
+            <img class="bg" src="${src}" alt="">
+            <img class="fg" alt="${app.name || ""}" src="${src}">
         `;
 
         slide.onclick = () => openDialog(app);
@@ -771,7 +1041,6 @@ function renderCarousel(list) {
     slideIndex = 1;
     showSlides(slideIndex);
 }
-
 /* Dialog */
 function openDialog(app) {
     dialog.style.display = "flex";
@@ -801,15 +1070,21 @@ function openDialog(app) {
         html += `<p><b>${currentStrings.deps}:</b> ${app.deps.join(", ")}</p>`;
     }
 
-    // 3. Додаємо підвал картки
+   // 3. Додаємо підвал картки
     html += `
         <hr>
         <p>${renderStars(computeRating(app))}</p>
         <p>${app.tester || ""}</p>
     `;
 
+    html += renderDevAppsRow(app); // NEW
+
     // 4. ОДИН РАЗ оновлюємо DOM
     dialogContent.innerHTML = html;
+
+
+
+    populateDevAppsRow(app); // NEW
 
     // 5. Тепер, коли DOM стабільний, шукаємо ТІ САМІ КНОПКИ, що бачить користувач
     const instBtn = dialogContent.querySelector(".inst");
@@ -837,16 +1112,33 @@ function openDialog(app) {
     };
 }
 
-dialog.onclick = (e) => {d
+dialog.onclick = (e) => {
     if (e.target === dialog) dialog.style.display = "none";
 };
 
+document.getElementById('sidebarToggle').addEventListener('click', () => {
+    document.getElementById('mainContainer').classList.toggle('sidebar-collapsed');
+  });
+
+/* Type filter tabs (moved out of the toolbar dropdown into the sidebar) */
+function setupTypeTabs() {
+    const tabs = document.querySelectorAll(".type-tab");
+    tabs.forEach(tab => {
+        tab.onclick = () => {
+            tabs.forEach(t => t.classList.remove("active"));
+            tab.classList.add("active");
+            currentMode = tab.dataset.type;
+            update();
+        };
+    });
+}
+setupTypeTabs();
+
 /* Filters */
-const modeSelect = document.getElementById("mode-select");
 const searchInput = document.getElementById("search-input");
 
 function filterApps() {
-    const mode = modeSelect.value;
+    const mode = currentMode;
     const query = searchInput.value.toLowerCase();
     let a;
     try {
@@ -854,11 +1146,8 @@ function filterApps() {
             (mode === "all" || app.type === mode) &&
             app.name.toLowerCase().includes(query)
         );
-                 modeSelect.disabled = 0;
     } catch(e) {
-        modeSelect.disabled = 1;
         a = apps;
-        return filterApps();
     }
     return a;
 }
@@ -916,6 +1205,29 @@ async function install(name) {
                     localStorage.setItem('autoload', JSON.stringify(autoload));
                 }
             }
+        }else if (app.type === "wasm") {
+            const fileName = app.entry.split("/").pop().split(".")[0].toLowerCase() + '.wasm';
+            const fileExists = parent.getFs().find(f => f.name.toLowerCase() == fileName);
+            console.warn("WASM got from entry: "+ fileName + fileExists)
+            if (fileExists) {
+                let autoload = [];
+                const autoloadString = localStorage.getItem('autoload') || "[]";
+                
+                if (autoloadString) {
+                    try {
+                        autoload = JSON.parse(autoloadString);
+                    } catch (e) {
+                        console.error("Autoload parse error:", e.message);
+                        autoload = [];
+                    }
+                }
+                console.log(autoload)
+
+                if (!autoload.includes(fileName)) {
+                    autoload.push(fileExists.name);
+                    localStorage.setItem('autoload', JSON.stringify(autoload));
+                }
+            }
         }else if (app.type == "html"){
             await parent.registerApps()
             renderApps(apps)
@@ -939,7 +1251,6 @@ function update() {
     } catch(e) {}
 }
 
-modeSelect.onchange = update;
 searchInput.oninput = update;
 
 /* Slideshow */

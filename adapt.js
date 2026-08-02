@@ -6,7 +6,6 @@ function escapeHtml(str) {
 
 async function redefineAdaptations() {
    if (detectMobile()) window.devicePixelRatio = 1.0;
-    
 window.open = async function(url, targetName, windowFeatures = '') {
 
     // 1. Дефолтні налаштування вікна Infinity OS
@@ -135,7 +134,7 @@ const windowClasses = [ wbtheme, 'text'];
 window.showOpenFilePicker = (opts = {}) => {
     if (icons) {
         const physicalIcon = icons.find(icon => icon.name == 'files');
-        console.log(icons)
+        
         if (physicalIcon && physicalIcon.onclick) {         
             
             return new Promise((resolve, reject) => {
@@ -293,8 +292,8 @@ window.onerror = (message, source, lineno, colno, error) => {
   
     // Формуємо HTML
     const htm = (lineno == null) 
-        ? `<div><img width="70" src="${icns.dialogErr}"><br>${message}</div>` 
-        : `<div><img width="70" src="${icns.dialogErr}"><br>${message}<br><small>${source}<br>${lineno}:${colno}</small></div>`;
+        ? `<div style="color: var(--color-text-primary);background-color: var(--bg-color); width:100%; height:100%;"><img width="70" src="${icns.dialogErr}"><br>${message}</div>` 
+        : `<div style="color: var(--color-text-primary);background-color: var(--bg-color); width:100%; height:100%;"><img width="70" src="${icns.dialogErr}"><br>${message}<br><small>${source}<br>${lineno}:${colno}</small></div>`;
 
     // 2. Створюємо вікно WinBox (переконуємося, що всі дужки закриті)
     try {
@@ -333,11 +332,11 @@ window.print = function() {
             height: 180, 
             width: 340, 
             html: `
-                <div style="padding: 12px; text-align: center;">
-                    <p style="margin: 0 0 10px 0;" data-i18n="enter_printer_ip">Enter Printer IP:</p>
-                    <input type="text" id="ipp-printer-ip" placeholder="192.168.1.100" style="width: 80%; padding: 4px; margin-bottom: 12px; text-align: center;">
+                <div style="padding: 0px; text-align: center; color: var(--color-text-primary);background-color: var(--bg-color); width:100%; height:100%;">
+                    <p style="margin:0px;padding-top:5px;" data-i18n="enter_printer_ip">Enter Printer IP:</p>
+                    <input type="text" id="ipp-printer-ip" placeholder="192.168.1.100" style="width: 80%; padding: 5px; margin-bottom: 10px; text-align: center;">
                     <br>
-                    <button id="infinity-print-execute" data-i18n="print_btn" style="padding: 6px 20px; font-weight: bold;"></button>
+                    <button id="print-execute" data-i18n="print_btn" style="padding: 10px 20px; font-weight: bold;"></button>
                 </div>
             `, 
             oncreate: function() {
@@ -350,9 +349,9 @@ window.print = function() {
                 const ipInput = document.getElementById('ipp-printer-ip');
 
 
-                document.getElementById('infinity-print-execute').onclick = async () => {
+                document.getElementById('print-execute').onclick = async () => {
                     const printerIP = ipInput.value.trim();
-                    if (!printerIP) return alert("Please enter a valid IP");
+                    if (!printerIP) return;
 
                     this.disabled = true;
 
@@ -433,17 +432,25 @@ function createMinimalIppPacket(textData) {
     new wm("window.alert", {x: "center",y: "center",
       class: ["no-header", wbtheme, "no-max", "no-resize"],
       icon: icon,
-      height: 200,
+      height: 150,
       width: 230,
-      minheight: 100,
+      minheight: 150,
       minwidth: 230,
-      html: `
-        <div style="text-align:left; padding:10px;">
-<img width="70" src="${icns.dialogInfo}">
-          ${escapeHtml(msg)}<br>
-          <button id="okBtn">OK</button>
-        </div>
-      `,
+  html: `
+    <div style="
+      color: var(--color-text-primary);
+      background-color: var(--bg-color);
+      text-align: left;
+      padding: 5px;
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 100%;
+    ">
+      <img width="70" src="${icns.dialogInfo}">
+      ${escapeHtml(msg)}<br>
+      <button id="okBtn">OK</button>
+    </div>
+  `,
       oncreate: function() {
         // this — це сам wm об’єкт
         this.body.querySelector("#okBtn").onclick = () => this.close();
@@ -457,26 +464,31 @@ window.confirm = async (msg) => {
     new wm("window.confirm", {
       x: "center", y: "center",
       class: ["no-header", wbtheme, "no-max", "no-resize"],
-      height: 150, // Трохи зменшив висоту для компактності
+      height: 140, // Трохи зменшив висоту для компактності
       width: 320,  // Збільшив ширину для кращого вигляду в ряд
       html: `
-        <div style="display: flex; padding: 15px; align-items: center; gap: 15px;">
-          <div style="flex-shrink: 0;">
-            <img width="50" src="${icns.dialogQues}">
-          </div>
-          <div style="flex-grow: 1; font-size: 14px; color: black; line-height: 1.4;">
-            ${escapeHtml(msg)}
-          </div>
-        </div>
-        <div style="text-align: right; padding: 0 15px 15px;">
-          <button id="cancelBtn" style="margin-right: 8px;">${_("cancel")}</button>
-          <button id="okBtn" style="font-weight: bold;">${_("ok")}</button>
-        </div>
+          <div style="display:flex; flex-direction:column; min-height:100%; box-sizing:border-box; color:var(--color-text-primary); background-color:var(--bg-color);">
+
+  <div style="display:flex; padding:0px; margin:15px; align-items:flex-start; gap:15px; flex:1; overflow:auto;">
+    <div style="flex-shrink:0;">
+      <img width="50" src="${icns.dialogQues}">
+    </div>
+    <div style="flex:1; font-size:14px; line-height:1.4; overflow-wrap:anywhere;">
+      ${escapeHtml(msg)}
+    </div>
+  </div>
+
+  <div style="text-align:right; padding:0 15px 15px; flex-shrink:0;">
+    <button id="cancelBtn" style="margin-right:8px;">${_("cancel")}</button>
+    <button id="okBtn" style="font-weight:bold;">${_("ok")}</button>
+  </div>
+
+</div>
       `,
       oncreate: function () {
-       if ( sounds.play === "function") {
+       
             sounds.play("question");
-        }
+        
         this.body.querySelector("#okBtn").onclick = () => { this.close(); resolve(true); };
         this.body.querySelector("#cancelBtn").onclick = () => { this.close(); resolve(false); };
       }
@@ -523,7 +535,7 @@ const proxies = [
         if (signal?.aborted) throw directError;
         
 
-
+        if (url.startsWith('/') || !url.startsWith('http')) return {ok:false}
         // 5. Fallback loop through designated proxies
         for (const proxyTemplate of proxies) {
             // Safely encode the target URL to keep the proxy string valid
@@ -536,6 +548,7 @@ const proxies = [
                 }
             } catch (proxyError) {
                 if (signal?.aborted) throw proxyError;
+                console.error(proxyUrl + " failed!")
             }
         }
 
@@ -587,24 +600,30 @@ window.prompt = async (msg, defaultValue = "") => {
     new wm("window.prompt", {
       x: "center", y: "center",
       class: ["no-header", wbtheme, "no-max", "no-resize"],
-      height: 160,
+      height: 140,
       width: 350,
       html: `
-        <div style="display: flex; padding: 15px; gap: 15px;">
-          <div style="flex-shrink: 0;">
-            <img width="50" src="${icns.dialogQues}">
-          </div>
-          <div style="flex-grow: 1;">
-            <div style="font-size: 14px; margin-bottom: 10px;">${escapeHtml(msg)}</div>
-            <input id="inputPrompt" value="${defaultValue}" 
-                   style="width: 100%; box-sizing: border-box; padding: 5px;">
-            
-            <div style="margin-top: 20px; text-align: right;">
-              <button id="cancelBtn" style="margin-right: 10px;">${_("cancel")}</button>
-              <button id="okBtn" style="font-weight: bold;">${_("ok")}</button>
-            </div>
-          </div>
-        </div>
+       <div style="display:flex; gap:5px; padding:15px; min-height:100%; box-sizing:border-box; color:var(--color-text-primary); background-color:var(--bg-color);">
+  <div style="flex-shrink:0;">
+    <img width="50" src="${icns.dialogQues}">
+  </div>
+
+  <div style="display:flex; flex-direction:column; flex:1; min-width:0;">
+    <div style="font-size:14px; margin-bottom:10px; overflow-wrap:anywhere;">
+      ${escapeHtml(msg)}
+    </div>
+
+    <input
+      id="inputPrompt"
+      value="${defaultValue}"
+      style="width:100%; box-sizing:border-box; padding:5px;">
+
+    <div style="margin-top:20px; text-align:right;">
+      <button id="cancelBtn" style="margin-right:10px;">${_("cancel")}</button>
+      <button id="okBtn" style="font-weight:bold;">${_("ok")}</button>
+    </div>
+  </div>
+</div>
       `,
       oncreate: function () {
         const input = this.body.querySelector("#inputPrompt");
@@ -634,17 +653,39 @@ window.Worker = function(scriptURL, options) {
         originalTerminate.call(this);
     };
 
-    worker.addEventListener('error', (e) => {
-        console.warn('[worker] uncaught error, terminating:', workerId, e.message);
-        worker.terminate(); // uses the wrapped version above, so it cleans up systemWorkers too
-    });
-
     return worker;
 };
 
+const OriginalMutationObserver = window.MutationObserver;
+
+window.MutationObserver = class extends OriginalMutationObserver {
+    constructor(callback) {
+        super(callback);
+
+        const observerId = "observer_" + Math.random().toString(36).slice(2);
+
+        window.systemObservers.push({
+            id: observerId,
+            instance: this
+        });
+
+        console.log("[observer] created:", observerId);
+
+        const originalDisconnect = this.disconnect;
+
+        this.disconnect = function() {
+            window.systemObservers = window.systemObservers.filter(
+                o => o.id !== observerId
+            );
+
+            console.warn("[observer] disconnected:", observerId);
+
+            return originalDisconnect.call(this);
+        };
+    }
+};
 
 }
-
 
 
 function redefineNotifications() {
@@ -764,14 +805,32 @@ window.Notification = OSNotification;
   return NotificationWrapper;
 }
 const popoverControllers = new WeakMap();
+
+const elementIds = new WeakMap();
+let nextElementId = 1;
+
+function getUniqueElementId(element) {
+    if (!elementIds.has(element)) {
+        elementIds.set(element, nextElementId++);
+    }
+
+    return elementIds.get(element);
+}
+
 function updateSystemPopover(triggerElement, text='', r=true, c=false) {
     if (!triggerElement) return;
 
-    // c - custom app; r - remove '.title'
-    text = (text == '') ? triggerElement.title : text;
+    // Preserve the original title in dataset before stripping it
+    if (triggerElement.hasAttribute('title')) {
+        triggerElement.dataset.originalTitle = triggerElement.title;
+    }
+
+    // Resolve text: passed text -> cached dataset -> fallback to empty
+    text = (text === '') ? (triggerElement.dataset.originalTitle || '') : text;
+
     if (r) triggerElement.removeAttribute('title');
     
-    if (detectMobile() && c) return
+    if (detectMobile() && c) return;
     
     /// --- Clean up any previous listeners for this exact trigger ---
     const prevController = popoverControllers.get(triggerElement);
@@ -783,39 +842,44 @@ function updateSystemPopover(triggerElement, text='', r=true, c=false) {
     popoverControllers.set(triggerElement, controller);
     const { signal } = controller;
 
-    // Normalize XPath output to make it a safe DOM ID string
-    let safeXPathId = getElementXPath(triggerElement).replace(/[^a-zA-Z0-9_-]/g, '_');
-    let popoverId = safeXPathId + (c ? '-application-popover' : "-system-popover");
+const elementId = getUniqueElementId(triggerElement);
+
+const popoverId =
+    `popover-${elementId}${c ? '-application' : '-system'}`;
     let popover = document.getElementById(popoverId);
+
     if (popover && c) {
         popover.remove();
+        popover = null; // Clear variable so it re-creates the DOM element below
         console.log("[Popover REM] " + popoverId);
     }
-    if (!popover){
-    popover = document.createElement('div');
-    popover.id = popoverId;
-    console.log("[Popover REG] " + popoverId);
-    popover.setAttribute('popover', 'auto');
-    popover.className = "popover";
-    popover.style.position = 'fixed';
-    popover.style.margin = '0';
-    popover.style.pointerEvents = 'none';
 
-    document.body.appendChild(popover);
-    triggerElement.setAttribute('popovertarget', popoverId);
+    if (!popover) {
+        popover = document.createElement('div');
+        popover.id = popoverId;
+        console.log("[Popover REG] " + popoverId);
+        popover.setAttribute('popover', 'auto');
+        popover.className = "popover";
+        popover.style.position = 'fixed';
+        popover.style.margin = '0';
+        popover.style.pointerEvents = 'none';
 
-    // Recalculate and show on hover — pass { signal } so abort() removes this automatically
-    triggerElement.addEventListener('pointermove', (e) => {
-        try {
-            popover.style.left = Math.round(parseInt(e.screenX) / parseFloat(window.devicePixelRatio.toFixed(1))) + "px";
-            popover.style.top = Math.round(parseInt(e.screenY) / parseFloat(window.devicePixelRatio.toFixed(1))) + "px";
-            popover.showPopover();
-        } catch (err) { console.error(err); }
-    }, { signal });
+        document.body.appendChild(popover);
+        triggerElement.setAttribute('popovertarget', popoverId);
 
-    triggerElement.addEventListener('pointerleave', () => {
-        try { popover.hidePopover(); } catch (err) {}
-    }, { signal });
-}
+        // Recalculate and show on hover — original screenX / screenY scaling retained
+        triggerElement.addEventListener('pointermove', (e) => {
+            try {
+                popover.style.left = Math.round(parseInt(e.screenX) / parseFloat(window.devicePixelRatio.toFixed(1))) + "px";
+                popover.style.top = Math.round(parseInt(e.screenY) / parseFloat(window.devicePixelRatio.toFixed(1))) + "px";
+                popover.showPopover();
+            } catch (err) { console.error(err); }
+        }, { signal });
+
+        triggerElement.addEventListener('pointerleave', () => {
+            try { popover.hidePopover(); } catch (err) {}
+        }, { signal });
+    }
+
     popover.textContent = text;
 }

@@ -9,7 +9,7 @@
   --bg-body:             white;
   --bg-splash:           black;
   --bg-menu:             rgba(0, 0, 0, 0.5);
-  --bg-menu-item-hover:  rgba(1, 1, 1, 0.05);
+  --bg-menu-item-hover:  rgba(1, 1, 1, 0.5);
   --bg-progress-track:   #7F7F7F;
   --bg-progress-fill:    white;
   --bg-panel: transparent;
@@ -51,6 +51,18 @@
   --info-text: #fff;
 }
 
+.blink {
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
 
 /* =============================================
    BASE
@@ -58,7 +70,8 @@
 
 body {
   background-color: black;
-  background-size: cover;
+background-size: cover;
+  background-position: center;
   background-repeat: no-repeat;
   overflow: hidden !important;
   margin: 0;
@@ -136,6 +149,13 @@ body.os-suspended *,
   opacity: 0;
   visibility: hidden;
   display:  none;
+}
+
+.animHidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .loading{
@@ -319,14 +339,15 @@ iframe #document {
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 0; 
-  
-  /* Магія клік-наскрізності для самого контейнера */
-  pointer-events: none; 
-  
+  z-index: 0;
+
+  pointer-events: none;
+
   display: flex;
+  flex-direction: column;
   color: var(--color-text-secondary);
 }
+
 
 
 
@@ -345,18 +366,16 @@ body.panel-at-top .winbox.max {
 .winbox.min {
   bottom: 0 !important; /* ПРИМУСОВО притискаємо */
   top: calc(100% - var(--panel-height)) !important;
-  
-  /* Притискаємо до самого низу */
-  
-left: 40px !important;
 z-index: 9999;
 /* Додаємо !important, щоб JS-розрахунки бібліотеки не заважали */
 height: var(--panel-height) !important;
 min-height: var(--panel-height) !important;
-max-height: var(--panel-height) !important;
 }
 
-/* Якщо таскбар зверху, WinBox може ставити top: 5px */
+.winbox.min.first-min {
+  left: 40px !important;
+} 
+
 body.panel-at-top .winbox.min {
   top: 0 !important;
   bottom: auto;
@@ -390,7 +409,19 @@ body.panel-at-top .winbox.min {
   user-select: none !important; /* Додатково вимикаємо спроби виділити текст */
 }
 
+.GPU_DRAW *{
+  will-change: contents;
+  will-change: scroll-position;
+}
 
+.GPU_DRAW ul{
+  will-change: transform;
+will-change: opacity;
+}
+
+.GPU_DRAW .winbox{
+will-change: left, top;
+}
 
 /* =============================================
    WINBOX — GLASS THEME
@@ -401,6 +432,7 @@ body.panel-at-top .winbox.min {
     border: solid 1px #aaaaaa55;
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px); /* Сумісність */
+
     
 }
 
@@ -559,6 +591,7 @@ footer {
   justify-content: space-between;
   align-items: center;
   bottom: 0;
+  line-height: 1;
   margin: 0;
   padding: 5px;
   width: 100vw;
@@ -569,6 +602,35 @@ footer {
   height: calc(var(--panel-height) - 10px);
 }
 
+footer > img {
+  height: 25px;
+  border-radius: var(--radius-full);
+}
+
+.right {
+  margin-right: 15px;
+  display: inline-flex;
+  align-items: center; /* Центрує батарею, звук та годинник строго по вертикалі */
+  gap: 10px; /* Додасть гарний однаковий відступ між іконками та годинником */
+  height: 100%; /* Розтягуємо на всю висоту панелі завдань */
+}
+
+.right span {
+  height: 100%;
+  display: inline-flex;    /* Дозволяє спану працювати як flex-контейнер */
+  align-items: center;     /* Центрує SVG по вертикалі */
+  justify-content: center; /* Центрує SVG по горизонталі */
+}
+
+.right svg{
+    width: 20px;
+    height: 20px;
+}
+
+body.panel-at-top .notification {
+  top: calc(var(--panel-height) + 10px);
+  bottom: auto;
+}
 
 #sysmenu {
   position: fixed;
@@ -581,7 +643,7 @@ footer {
   top: auto;
   border-radius: 0px;
   border-top-right-radius: var(--radius-md);
-  
+  max-width: 50vw;
   /* Захист для всього меню: якщо воно раптом виросте, 
      воно не повинно ламати екран */
   flex-direction: column;
@@ -645,7 +707,7 @@ p.sort-desc::before{ content: '▼'; }
   display: inline-block;
   margin-left: px;
   
-  font-size: 10px;
+  font-size: 15px;
 }
 
 body:not(.win_cla).appmenu-category::before {
@@ -686,30 +748,6 @@ body:not(.win_cla).appmenu-category::before {
   padding: 8px 15px !important;
 }
 
-footer > img {
-  height: 25px;
-  border-radius: var(--radius-full);
-}
-
-.right {
-  margin-right: 15px;
-  display: inline-flex;
-  align-items: center; /* Центрує батарею, звук та годинник строго по вертикалі */
-  gap: 10px; /* Додасть гарний однаковий відступ між іконками та годинником */
-  height: 100%; /* Розтягуємо на всю висоту панелі завдань */
-}
-
-.right span {
-  height: 100%;
-  display: inline-flex;    /* Дозволяє спану працювати як flex-контейнер */
-  align-items: center;     /* Центрує SVG по вертикалі */
-  justify-content: center; /* Центрує SVG по горизонталі */
-}
-
-.right svg{
-    width: 20px;
-    height: 20px;
-}
 
 
 
@@ -741,17 +779,14 @@ color: var(--info-text, --color-text-secondary);
              slideOut 0.5s 2.0s ease-in forwards;
 }
 
-body.panel-at-top .notification {
-  top: calc(var(--panel-height) + 10px);
-  bottom: auto;
-}
+
 
 
 .popover{
   position: fixed;
             margin: 0;
             padding: 4px 8px; 
-            font-size: 12px; 
+            font-size: 10px; 
             border: none;
             background: var(--info-bg, rgba(30, 30, 30, 0.5));
             transform-origin: top left;

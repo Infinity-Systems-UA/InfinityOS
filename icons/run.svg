@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="#2563eb">
+  <!-- Left Arrow -->
+  <path d="M16 19.5 C16 18 17.8 17 19.2 17.8 L36.2 30.3 C37.4 31.1 37.4 32.9 36.2 33.7 L19.2 46.2 C17.8 47 16 46 16 44.5 Z" />
+  
+  <!-- Right Arrow (Slightly shifted to the right) -->
+  <path d="M30 19.5 C30 18 31.8 17 33.2 17.8 L50.2 30.3 C51.4 31.1 51.4 32.9 50.2 33.7 L33.2 46.2 C31.8 47 30 46 30 44.5 Z" />
+</svg>
