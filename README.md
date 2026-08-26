@@ -8,7 +8,7 @@
 ## With existing OS
 1. Clone this repository to your local machine.
 2. Download or copy our peripheral permissions setup script from [GitHub Gist](https://gist.github.com/Infinity-Systems-UA/f9b0300699e233a4877d9bb5ee208bce).
-3. Save it as `start.sh` inside the project folder.
+3. Save it as `start.sh` somewhere.
 4. Update the path in `start.sh` if your folder location differs (`cd ~/Documents/InfinityOS/`).
 5. Ensure a Chromium-based browser is installed, make the script executable (`chmod +x start.sh`), and run it!
 
