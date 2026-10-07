@@ -19,8 +19,7 @@
 4. Boot!
   
 
-Separate WIKIs for users and developers:
-https://github.com/Max-Infinity/InfinityOS/wiki
+Separate WIKIs for users and developers: [HERE](https://github.com/Infinity-Systems-UA/InfinityOS/wiki)
 
 # Contrubution
 You can contribute by developing apps for Infinity OS and publishing them into Infinity Store.
