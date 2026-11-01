@@ -1,4 +1,51 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect x="6" y="4" width="52" height="56" rx="8" fill="#fff6cc" stroke="#c7c7cc" stroke-width="2"/>
-  <text x="20" y="40" font-size="16" font-family="SFMono-Regular, monospace" fill="#4a4a4a">JS</text>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 64 64"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="text-x-javascript.svg"
+   inkscape:version="1.4 (e7c3feb100, 2024-10-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:zoom="13.953125"
+     inkscape:cx="31.964166"
+     inkscape:cy="32"
+     inkscape:window-width="1920"
+     inkscape:window-height="1131"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1" />
+  <rect
+     x="6"
+     y="4"
+     width="52"
+     height="56"
+     rx="8"
+     fill="#fff6cc"
+     stroke="#c7c7cc"
+     stroke-width="2"
+     id="rect1"
+     style="fill:#f0db4f;fill-opacity:1" />
+  <text
+     x="10.834057"
+     y="53.585804"
+     font-size="17.824px"
+     fill="#ddd5bb"
+     id="text1"
+     transform="scale(1.0089264,0.99115258)"
+     style="fill:#323330;fill-opacity:1;stroke-width:1">JS</text>
 </svg>

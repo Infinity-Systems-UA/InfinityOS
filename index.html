@@ -3,26 +3,14 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="apps/global.css">
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=2.5">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2.5">
 <body id="body" oncontextmenu=" event.preventDefault();">
   
   <script>
   if (typeof global === 'undefined') {
     window.global = window;
   }
-  /*
-console.log = (m,m1='') => document.getElementById('notify').innerText += '\n' + m+' '+m1;
-console.warn = (m,m1='') => document.getElementById('notify').innerText += '\n' + m+' '+m1;
-console.error = (m,m1='') => document.getElementById('notify').innerText += '\n' + m+' '+m1;
-*/
 
-
-// Catch asset loading failures (scripts, css, images)
-  window.addEventListener('error', function (event) {
-    if (event.target && event.target.tagName === 'SCRIPT') {
-      document.getElementById('notify').innerText = `Failed to load script: ${event.target.src}`;
-    }
-  }, true);
 
   // --- DYNAMIC CORS / FILE PROTOCOL BYPASS ---
   const isLocalFile = window.location.protocol === 'file:';
@@ -47,24 +35,7 @@ console.error = (m,m1='') => document.getElementById('notify').innerText += '\n'
   });
 </script>
 
-<script src="dist/winbox.bundle.min.js"
-        onerror="console.error('WinBox failed to load')"></script>
-
-<script src="dist/jszip.min.js"
-        onerror="console.error('JSZip failed to load')"></script>
-
-<script src="dist/marked.umd.js"
-        onerror="console.error('Marked failed to load')"></script>
-
-<script src="dist/turndown.min.js"
-        onerror="console.error('Turndown failed to load')"></script>
-
-<script src="dist/mammoth.browser.min.js"
-        onerror="console.error('Mammoth failed to load')"></script>
-
-<script src="dist/html-to-docx.browser.js"
-        onerror="console.error('HTML-to-DOCX failed to load')"></script>
-
+<div id="flash-overlay" aria-hidden="true"></div>
 <div id="system-sleep-overlay" aria-hidden="true"></div>
 <div id="desktop-fore">
   <p style="padding:0;margin:0;font-size: calc(100vw / 10)" class="clock-date"></p>
@@ -78,32 +49,66 @@ console.error = (m,m1='') => document.getElementById('notify').innerText += '\n'
 <progress max="100" value="0" min="0" id='loadprg'></progress>
 <div class='no-font' id="notify"></div>
 </div>
-  <div id="desktopApps"></div>
+
+  <div id="desktopApps" onclick="showDesktop(1);"></div>
 
 
 <div class="menu glass-theme glass-theme" id="deskM">
   <li onclick="safeShutdown({ restart: true });"><p>restart</p><span>⌘+R</span></li>
   <li onclick="safeShutdown({ restart: false });"><p>shutdown</p><span>⌘+W</span></li>
   <li onclick="openApp('run')"><p>run</p><span>⌘+R</span></li>
+<li id='capt_btn' class='disabled' onclick="
+  n='pictures/screenshots/' + Date.now() + '.png';
+  hideMenus(event);
+  setTimeout(async () => {
+    await screenCaptUtils.download(n);
+    new Notification('Infinity OS', {
+      body: _('saved_file_to').replace('{path}', n)
+    });
+  }, 100);
+">
+  <p>capture</p><span>⌘+W</span>
+</li>
+<li onclick="showDesktop()"><p>show_desktop</p><span>⌘+F3</span></li>
   <li onclick="makeShortcut()"><p>new</p></li>
 </div>
 
 <div class="menu glass-theme glass-theme" id="folderM">
   <li id="create_item_btn"><p>new</p></li>
+  <li id="t_file_paste" class='disabled' ><p data-i18n="paste_btn">paste_btn</p><span>⌘+V</span></li>
   <li id="zip1_btn"><p>pack_btn</p></li>
 <li id="getinfo1_btn"><p>get_info</p></li>
 </div>
 
 <div class="menu glass-theme" id="itemM">
-  <li id="delete_item_btn"><p>delete_btn</p><span>Del</span></li>
-  <li id="copy_name"><p>copy_name</p><span></span></li>
+  <li id="open_item_btn"><b>open</b><span></span></li>
   <li id="rename_item_btn"><p>rename_btn</p><span></span></li>
+  <li id="copy_name"><p>copy_name</p><span></span></li>
+  <li id="delete_item_btn"><p>delete_btn</p><span>Del</span></li>
+  <span class='sub' id='extra_shortcuts'></span>
 </div>
 
 <div class="menu glass-theme" id="fileM">
   <li id="open_btn"><b>open</b><span></span></li>
+  <li id="mount_btn"><b>mount_btn</b></li>
+  <li id="unmount_btn"><p>unmount_btn</p></li>
   <li id="open_as_text_btn"><p>open_as_text_btn</p><span></span></li>
   <li id="rename_btn"><p>rename_btn</p><span></span></li>
+
+
+  <hr id="t_beforeClipbrd" style="margin: 3px 0; border-color: #ffffff33;">
+  <!-- Top Horizontal Row -->
+  <div class="menu-row-top" id='files_clipbrd_row' style="display: flex; gap: 4px;">  
+    <li id="t_file_cut" ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-scissors" viewBox="0 0 16 16">
+  <path d="M3.5 3.5c-.614-.884-.074-1.962.858-2.5L8 7.226 11.642 1c.932.538 1.472 1.616.858 2.5L8.81 8.61l1.556 2.661a2.5 2.5 0 1 1-.794.637L8 9.73l-1.572 2.177a2.5 2.5 0 1 1-.794-.637L7.19 8.61zm2.5 10a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0m7 0a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0"/>
+</svg><br><p data-i18n="cut_btn">cut_btn</p><br><span>⌘+X</span></li>
+    <li id="t_file_copy" ><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-copy" viewBox="0 0 16 16">
+  <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/>
+</svg><br><p data-i18n="copy_btn">copy_btn</p><br><span>⌘+C</span></li>
+
+  </div>
+
+  <hr id="t_afterClipbrd" style="margin: 3px 0; border-color: #ffffff33;">
   <li id="delete_file_btn"><p>delete_btn</p><span>Del</span></li>
   <li id="print_btn"><p>print_btn</p><span></span></li>
   <li id="set_bg_btn"><p>set_bg_btn</p><span></span></li>
@@ -111,8 +116,6 @@ console.error = (m,m1='') => document.getElementById('notify').innerText += '\n'
   <li id="toggle_startup"><input type="checkbox" id="isStartup"></input><label for="isStartup">startup</label><span></span></li>
   <li id="unzip_btn"><p>extract_btn</p></li>
   <li id="zip_btn"><p>pack_btn</p></li>
-  <li id="mount_btn"><p>mount_btn</p></li>
-  <li id="unmount_btn"><p>unmount_btn</p></li>
   <li id="format_btn"><p>format_btn</p></li>
   <li id="default_btn"><p>set_default</p></li>
   <hr style="margin: 3px 0; border-color: #ffffff33;">
@@ -120,24 +123,37 @@ console.error = (m,m1='') => document.getElementById('notify').innerText += '\n'
 </div>
 
 <div class="menu glass-theme" id="textM">
+  <!-- Top Horizontal Row -->
+  <div class="menu-row-top" style="display: flex; gap: 4px;">
+    <li id="t_cut" onclick="document.execCommand('cut'); this.closest('.menu').style.display='none';"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-scissors" viewBox="0 0 16 16">
+  <path d="M3.5 3.5c-.614-.884-.074-1.962.858-2.5L8 7.226 11.642 1c.932.538 1.472 1.616.858 2.5L8.81 8.61l1.556 2.661a2.5 2.5 0 1 1-.794.637L8 9.73l-1.572 2.177a2.5 2.5 0 1 1-.794-.637L7.19 8.61zm2.5 10a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0m7 0a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0"/>
+</svg><br><p data-i18n="cut_btn">cut_btn</p><br><span>⌘+X</span></li>
+    <li id="t_copy" onclick="document.execCommand('copy'); this.closest('.menu').style.display='none';"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-copy" viewBox="0 0 16 16">
+  <path fill-rule="evenodd" d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zM2 5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-1h1v1a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1v1z"/>
+</svg><br><p data-i18n="copy_btn">copy_btn</p><br><span>⌘+C</span></li>
+    <li id="t_paste" onclick="(async () => { const text = await navigator.clipboard.readText(); document.execCommand('insertText', false, text); this.closest('.menu').style.display='none'; })();"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-clipboard" viewBox="0 0 16 16">
+  <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1z"/>
+  <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0z"/>
+</svg><br><p data-i18n="paste_btn">paste_btn</p><br><span>⌘+V</span></li>
+  </div>
+
+  <hr id="t_" style="margin: 3px 0; border-color: #ffffff33;">
+
+  <!-- Vertical List Items -->
   <li id="t_undo" onclick="document.execCommand('undo'); this.closest('.menu').style.display='none';"><p data-i18n="undo_btn">undo_btn</p><span>⌘+Z</span></li>
   <li id="t_redo" onclick="document.execCommand('redo'); this.closest('.menu').style.display='none';"><p data-i18n="redo_btn">redo_btn</p><span>⌘+⇧+Z</span></li>
-  <hr id="t_" style="margin: 3px 0; border-color: #ffffff33;">
-  <li id="t_cut" onclick="document.execCommand('cut'); this.closest('.menu').style.display='none';"><p data-i18n="cut_btn">cut_btn</p><span>⌘+X</span></li>
-  <li id="t_copy" onclick="document.execCommand('copy'); this.closest('.menu').style.display='none';"><p data-i18n="copy_btn">copy_btn</p><span>⌘+C</span></li>
-  <li id="t_paste" onclick="const text = await navigator.clipboard.readText();doc.execCommand('insertText', false, text); this.closest('.menu').style.display='none';"><p data-i18n="paste_btn">paste_btn</p><span>⌘+V</span></li>
   <li id="t_del" onclick="document.execCommand('delete'); this.closest('.menu').style.display='none';"><p data-i18n="delete_btn">delete_btn</p><span>Del</span></li>
   <li id="t_all" onclick="document.execCommand('selectAll'); this.closest('.menu').style.display='none';"><p data-i18n="all_btn">all_btn</p><span>⌘+A</span></li>
 </div>
 
 <div id="sysmenu">
   <details id='appmenu-list-sys'>
-    <summary data-i18n="system_apps" class="appmenu-category">System apps</summary>
+    <summary  class="appmenu-category"><span data-i18n="system_apps">System apps</span>&nbsp;(<span id='count_sysApps'></span>)</summary>
     <div id="appmenu-sys"></div>
     </details>
 
   <details id='appmenu-list-user'>
-    <summary data-i18n="user_apps" class="appmenu-category">User apps</summary>
+    <summary  class="appmenu-category"><span data-i18n="user_apps">System apps</span>&nbsp;(<span id='count_userApps'></span>)</summary>
     <div id="appmenu-user"></div>
   </details>
   <div class="sysmenu-actions">
@@ -167,19 +183,84 @@ console.error = (m,m1='') => document.getElementById('notify').innerText += '\n'
 
 
 <div class="right">
-<span style="display:none;" id="gamepad" onclick="openApp('settings', 'drivers')">
+    <span style="display:none;" id="capsLockState" onclick="openApp('settings', 'keyboard')">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-capslock-fill" viewBox="0 0 16 16">
+  <path d="M7.27 1.047a1 1 0 0 1 1.46 0l6.345 6.77c.6.638.146 1.683-.73 1.683H11.5v1a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1v-1H1.654C.78 9.5.326 8.455.924 7.816zM4.5 13.5a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1z"/>
+</svg>
+  </span>
+  <span style="display:none;" id="usbTray">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-usb-symbol" viewBox="0 0 16 16">
+  <path d="m7.792.312-1.533 2.3A.25.25 0 0 0 6.467 3H7.5v7.319a2.5 2.5 0 0 0-.515-.298L5.909 9.56A1.5 1.5 0 0 1 5 8.18v-.266a1.5 1.5 0 1 0-1 0v.266a2.5 2.5 0 0 0 1.515 2.298l1.076.461a1.5 1.5 0 0 1 .888 1.129 2.001 2.001 0 1 0 1.021-.006v-.902a1.5 1.5 0 0 1 .756-1.303l1.484-.848A2.5 2.5 0 0 0 11.995 7h.755a.25.25 0 0 0 .25-.25v-2.5a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25v2.5c0 .138.112.25.25.25h.741a1.5 1.5 0 0 1-.747 1.142L8.76 8.99a3 3 0 0 0-.26.17V3h1.033a.25.25 0 0 0 .208-.389L8.208.312a.25.25 0 0 0-.416 0"/>
+</svg>
+  </span>
+<span style="display:none;" id="gamepad" onclick="openApp('settings', 'devices')">
   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-controller" viewBox="0 0 16 16">
   <path d="M11.5 6.027a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0m-1.5 1.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1m2.5-.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0m-1.5 1.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1m-6.5-3h1v1h1v1h-1v1h-1v-1h-1v-1h1z"/>
   <path d="M3.051 3.26a.5.5 0 0 1 .354-.613l1.932-.518a.5.5 0 0 1 .62.39c.655-.079 1.35-.117 2.043-.117.72 0 1.443.041 2.12.126a.5.5 0 0 1 .622-.399l1.932.518a.5.5 0 0 1 .306.729q.211.136.373.297c.408.408.78 1.05 1.095 1.772.32.733.599 1.591.805 2.466s.34 1.78.364 2.606c.024.816-.059 1.602-.328 2.21a1.42 1.42 0 0 1-1.445.83c-.636-.067-1.115-.394-1.513-.773-.245-.232-.496-.526-.739-.808-.126-.148-.25-.292-.368-.423-.728-.804-1.597-1.527-3.224-1.527s-2.496.723-3.224 1.527c-.119.131-.242.275-.368.423-.243.282-.494.575-.739.808-.398.38-.877.706-1.513.773a1.42 1.42 0 0 1-1.445-.83c-.27-.608-.352-1.395-.329-2.21.024-.826.16-1.73.365-2.606.206-.875.486-1.733.805-2.466.315-.722.687-1.364 1.094-1.772a2.3 2.3 0 0 1 .433-.335l-.028-.079zm2.036.412c-.877.185-1.469.443-1.733.708-.276.276-.587.783-.885 1.465a14 14 0 0 0-.748 2.295 12.4 12.4 0 0 0-.339 2.406c-.022.755.062 1.368.243 1.776a.42.42 0 0 0 .426.24c.327-.034.61-.199.929-.502.212-.202.4-.423.615-.674.133-.156.276-.323.44-.504C4.861 9.969 5.978 9.027 8 9.027s3.139.942 3.965 1.855c.164.181.307.348.44.504.214.251.403.472.615.674.318.303.601.468.929.503a.42.42 0 0 0 .426-.241c.18-.408.265-1.02.243-1.776a12.4 12.4 0 0 0-.339-2.406 14 14 0 0 0-.748-2.295c-.298-.682-.61-1.19-.885-1.465-.264-.265-.856-.523-1.733-.708-.85-.179-1.877-.27-2.913-.27s-2.063.091-2.913.27"/>
 </svg>
 </span>
-<span id="netw"></span>
-<span id="batt"></span>
+<span onclick="if (HW_API) openApp('settings', 'network')" id="netw"></span>
+<span onclick="if (HW_API) openApp('settings', 'network')" id="bt">
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-bluetooth" viewBox="0 0 16 16">
+  <path fill-rule="evenodd" d="m8.543 3.948 1.316 1.316L8.543 6.58zm0 8.104 1.316-1.316L8.543 9.42zm-1.41-4.043L4.275 5.133l.827-.827L7.377 6.58V1.128l4.137 4.136L8.787 8.01l2.745 2.745-4.136 4.137V9.42l-2.294 2.274-.827-.827zM7.903 16c3.498 0 5.904-1.655 5.904-8.01 0-6.335-2.406-7.99-5.903-7.99S2 1.655 2 8.01C2 14.344 4.407 16 7.904 16Z"/>
+</svg>
+</span>
+<span onclick="openApp('settings', 'battery')" id="batt"></span>
 <span id="vol"></span>
   <b onclick="openApp('clock')" class="clock-time"></b>
+  <span class='showDesktop' id='showDesktopZone' onmouseenter="showDesktop(0)" onmouseleave="showDesktop(1)"></span>
 </div>
  </footer>
+ <script>
+const verboseBoot1 = JSON.parse(localStorage.getItem("boot") || "{}").verbose ?? true;
+   function log(msg,id) {
+    if (!verboseBoot1) return;
+    const notify = document.getElementById("notify");
+
+    if (notify) {
+      if (id) notify.insertAdjacentHTML("beforeend", `<div id='${id}'>${msg}</div>`);
+      else notify.insertAdjacentHTML("beforeend", `<div>${msg}</div>`);
+        
+
+        const lastLine = notify.lastElementChild;
+        lastLine?.scrollIntoView({
+    behavior: "auto",
+    block: "nearest"
+});
+    }
+}
+
+
+ </script>
+
+
+<script src="dist/jszip.min.js"
+        onload="log('[OK] JSZip loaded')"
+        onerror="log('<span style=\'color:red;\'>[FAIL] JSZip failed to load</span>')"></script>
+
+<script src="dist/marked.umd.js"
+        onload="log('[OK] Marked loaded')"
+        onerror="log('<span style=\'color:red;\'>[FAIL] Marked failed to load</span>')"></script>
+
+<script src="dist/turndown.min.js"
+        onload="log('[OK] Turndown loaded')"
+        onerror="log('<span style=\'color:red;\'>[FAIL] Turndown failed to load</span>')"></script>
+
+<script src="dist/mammoth.min.js"
+        onload="log('[OK] Mammoth loaded')"
+        onerror="log('<span style=\'color:red;\'>[FAIL] Mammoth failed to load</span>')"></script>
+<script src="dist/chart.min.js"
+        onload="log('[OK] Chart loaded')"
+        onerror="log('<span style=\'color:red;\'>[FAIL] Chart failed to load</span>')"></script>
  <script src="langs.js"></script>
+ 
+ <script src="dist/ppd-parser.js"
+        onload="log('[OK] ppd-parser loaded')"
+        onerror="log('<span style=\'color:red;\'>[FAIL] ppd-parser failed to load</span>')"></script>
+        
+<script src="dist/doldoc.js"
+        onload="log('[OK] DolDoc loaded')"
+        onerror="log('<span style=\'color:red;\'>[FAIL] DolDoc failed to load</span>')"></script>
 
 
 </body>

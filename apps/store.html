@@ -1,0 +1,1488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Infinity Store</title>
+<link rel="stylesheet" href="global.css">
+
+<style>
+    /* 1. Reset sizing across all elements */
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    user-select: none;
+}
+  .app-card {
+      border-radius: 15px;
+      padding: 10px;
+      margin: 5px;
+      cursor: pointer;
+      border: solid 1px #aaa;
+  }
+
+  p, h2 {
+      padding-left: 10px;
+  }
+
+  #apps-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+  }
+
+  /* Carousel */
+  .slideshow-container {
+      max-width: 600px;
+      position: relative;
+      margin: auto;
+      min-height: 100px;
+      box-sizing: border-box;
+  }
+
+  .mySlides {
+      display: none;
+      transition: transform 0.4s ease;
+      height: 300px;
+      z-index: 0;
+      align-items: center;
+      justify-content: center;
+      animation: fadeEffect 0.6s ease;
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      background: #000;
+      border-radius:10px;
+  }
+
+  @keyframes fadeEffect {
+      from { opacity: 0.5; }
+      to { opacity: 1; }
+  }
+
+  .mySlides .bg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      filter: blur(20px);
+      transform: scale(1.1);
+      opacity: 0.7;
+      border-radius: clamp(0px, (100vw - 600px) * 9999, 10px);
+  }
+
+  .mySlides .fg {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+  }
+
+  .prev, .next {
+      cursor: pointer;
+      position: absolute;
+      top: 50%;
+      padding: 15px;
+      color: white;
+text-shadow: 1px 1px 10px #000000;
+      font-weight: bold;
+      font-size: 15px;
+  }
+
+  .next {
+      right: 0;
+  }
+
+  /* Repository Limits / Error */
+  #err {
+      display: none;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--toolbar-bg);
+      z-index: 10;
+      padding-top: 10px;
+      text-align: center;
+  }
+
+  /* Dialog */
+  #app-dialog {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      justify-content: center;
+      align-items: center;
+  }
+
+  .dialog-content {
+      background: var(--toolbar-bg);
+      padding: 20px;
+      border-radius: 15px;
+      width: 320px;
+  }
+
+  /* ===== LAYOUT FIXES ===== */
+  body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+  }
+
+  .toolbar {
+      flex-shrink: 0;
+      display: flex;
+      gap: 5px;
+      padding: 5px;
+  }
+
+  /* Container wrapper takes remaining vertical space without overflow */
+  #sett_app {
+      flex-grow: 1;
+      min-height: 0;
+      width: 100%;
+      overflow: hidden;
+      container-type: inline-size;
+  }
+
+  main {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      display: grid;
+      grid-template-columns: clamp(140px, 28cqi, 240px) 1fr;
+      grid-template-rows: 100%;
+      grid-template-areas: "sidebar content";
+      overflow: hidden;
+      transition: grid-template-columns 0.25s ease;
+  }
+
+@container (width < 700px) {
+      main.sidebar-collapsed {
+          grid-template-columns: 50px 1fr; /* Трохи збільшили для зручності іконки ≡ */
+      }
+
+      main.sidebar-collapsed .settings-toolbar {
+          align-items: center;
+      }
+
+      main.sidebar-collapsed .settings-toolbar .sidebar-tab,
+      main.sidebar-collapsed .settings-toolbar .sidebar-separator {
+          display: none !important; /* Гарантовано ховаємо текст */
+      }
+.sidebar-handle {
+    display: none;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 8px 0;
+    margin: 0;
+}
+  }
+
+  /* ===== SIDEBAR ===== */
+  .settings-toolbar {
+      height: 100%;
+      grid-area: sidebar;
+      border-right: 1px solid #ccc;
+      background: var(--toolbar-bg);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      transition: width 0.3s;
+      overflow-y: auto;
+      overflow-x: hidden;
+  }
+
+  .column {
+      margin-top: 15px; 
+      display: flex; 
+      justify-content: flex-start; 
+      gap: 10px; 
+      width: max-content;
+  }
+
+  .sidebar-handle {
+      display: none;
+  }
+
+  .sidebar-tab {
+cursor: default;
+
+  display: block;        /* text-overflow doesn't work on inline elements */
+  min-width: 0;          /* lets it shrink inside the flex column */
+  max-width: 100%;
+  overflow: hidden;      /* the missing piece */
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+  .sidebar-tab:before {
+      content: "» ";
+  }
+
+  .sidebar-tab:hover {
+      text-decoration: underline;
+  }
+
+  .sidebar-tab.active {
+      font-weight: bold;
+      color: var(--accent-color, #4a9eff);
+  }
+
+  .sidebar-separator {
+      border-top: 1px solid var(--input-border);
+      margin: 6px 0;
+  }
+
+  /* ===== CONTENT ===== */
+.content-container {
+    grid-area: content;
+    height: 100%;
+    min-height: 0; /* Prevents flex/grid children from overflowing parent */
+    overflow-y: auto;
+    padding: 15px;
+    background: var(--bg-color);
+}
+
+  #sec1 {
+      transition: all 0.3s ease-in-out;
+  }
+
+  .page {
+      margin-bottom: 15px;
+  }
+
+  /* Responsive handle visible on small containers even if not collapsed */
+  @container (width < 700px) {
+
+      .sidebar-handle {
+          display: block;
+      }
+  }
+            .close-btn {
+                position: absolute;
+                top: 15px;
+                right: 20px;
+                font-size: 1.5rem;
+                color: var(--muted);
+                cursor: pointer;
+            }
+
+
+            .dev-apps-row {
+    display: flex;
+    gap: 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 10px 2px 4px;
+    scrollbar-width: thin;
+}
+
+.dev-app-mini {
+    flex: 0 0 auto;
+    width: 90px;
+    cursor: pointer;
+    text-align: center;
+}
+
+.dev-app-mini .mini-thumb {
+    width: 90px;
+    height: 90px;
+    border-radius: 12px;
+    background: #000;
+    object-fit: cover;
+    display: block;
+    border: 1px solid #aaa;
+}
+
+.dev-app-mini .mini-thumb.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: var(--muted, #888);
+    background: var(--toolbar-bg);
+}
+
+.dev-app-mini small {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-left: 0;
+}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+    <input type="search" list="apps" id="search-input" style="flex-grow:1;" inputmode="search">
+    <button id="search-btn" onclick="update()">Search</button>
+    <datalist id="apps"></datalist>
+</div>
+
+<div id="sett_app">
+  <main id="main_app">
+    <!-- SIDEBAR -->
+    <div class="settings-toolbar" id="storeSidebar">
+        <button class="sidebar-handle" id="sidebarToggle" onclick="document.getElementById('main_app').classList.toggle('sidebar-collapsed')">≡</button>
+
+        <a class="sidebar-tab type-tab active" data-type="all" id="tab-type-all">All</a>
+        <div class="sidebar-separator"></div>
+        <a class="sidebar-tab type-tab" data-type="html" id="tab-type-html">HTML</a>
+        <a class="sidebar-tab type-tab" data-type="js" id="tab-type-js">JS</a>
+        <a class="sidebar-tab type-tab" data-type="node" id="tab-type-node">NodeJS</a>
+        <a class="sidebar-tab type-tab" data-type="theme" id="tab-type-theme">Theme & Colors</a>
+        <a class="sidebar-tab type-tab" data-type="wasm" id="tab-type-wasm">WASM</a>
+    </div>
+
+    <div class="content-container">
+        <div id="err"></div>
+
+        <section id="sec1">
+          <h2 id="title-popular">Popular</h2>
+          <div class="slideshow-container">
+              <div id="slides-wrapper"></div>
+              <a class="prev" onclick="plusSlides(-1)">❮</a>
+              <a class="next" onclick="plusSlides(1)">❯</a>
+          </div>
+        </section>
+
+        <section id="sec2">
+          <h2 style="display: flex; gap: 10px;">
+            <button id="btn-copy-meta" onclick="copyMeta()">Copy meta</button>
+            <button id="btn-custom-repo" onclick="customRepo()"></button>
+          </h2>
+          <div id="apps-list"></div>
+        </section>
+    </div>
+  </main>
+</div>
+
+<div id="app-dialog">
+                <span class="close-btn" onclick='dialog.style.display = "none"'>&times;</span>
+    <div class="dialog-content" id="dialog-content"></div>
+</div>
+
+<script>
+let apps;
+let currentMode = "all";
+let datalist = document.getElementById('apps');
+let currentDev = parent.detectMobile() ? 'mobile' : "desktop";
+
+const err = document.getElementById("err");
+
+function getRepoUrl(metaUrl) {
+    try {
+        const url = new URL(metaUrl);
+        const parts = url.pathname.split("/");
+        parts.pop(); 
+        return url.origin + parts.join("/") + "/";
+    } catch(e) {
+        return "";
+    }
+}
+
+let META_URL = localStorage.getItem("StoreRepo") || "https://cosmic-dragon-a1ab65.netlify.app/meta.json";
+let BASE_URL = getRepoUrl(META_URL) ;
+
+
+const lang = parent.getCurrLang() || 'en';
+
+
+// РОЗШИРЕНИЙ СЛОВНИК ПЕРЕКЛАДІВ ДЛЯ ІНТЕРФЕЙСУ STORE
+const translations = {
+    ua: {
+        all: "Усе",
+        search: "Пошук",
+        popular: "Популярні",
+        list: "Список додатків",
+        copyMeta: "Копіювати метапакет",
+        install: "Встановити",
+        uninstall: "Видалити",
+
+        minOS: "Мінімальна версія ОС",
+        minRam: "Мінімальний обсяг ОЗП",
+        deps: "Залежності",
+        searchPlaceholder: "Пошук додатків...",
+        repoUnavailable: "Репозиторій недоступний",
+        noInternet: "Ваш пристрій не підключено до Інтернету.",
+        checkInternet: "Перевірте підключення до мережі",
+        browseLocal: "Переглядати встановлені додатки",
+        retry: "Повторити спробу",
+        limitReached: "Перевищено ліміт використання сховища на цей місяць.",
+        resumeCycle: "Робота відновиться з початком нового циклу.",
+        whatToDo: "Що можна зробити зараз?",
+        waitNext: "Зачекати наступного циклу",
+        connectCustom: "Підключити сторонній репозиторій",
+        tipTitle: "Порада:",
+        tipDesc: "Уникайте частого завантаження великих додатків для економії трафіку.",
+        
+        placeholderMeta: "Посилання на Meta URL",
+        connectBtn: "Підключити",
+        fillFields: "Будь ласка, заповніть обидва поля.",
+        connectedSuccess: "Успішно підключено!",
+        connectFailed: "Помилка підключення. Перевірте URL.",
+        alertSuccess: "Успішно встановлено: ",
+
+        alertCopied: "Метапакет скопійовано в буфер.",
+                alertCopied: "Метапакет скопійовано в буфер.",
+                 alertSuccessRemove: "Успішно видалено: ",  // ← ADD THIS
+                 moreFromDev: "Більше від цього розробника",
+                 goesWellWith: "Добре поєднується з" // ← ДОДАНО
+    },
+    en: {
+        all: "All",
+        search: "Search",
+        popular: "Popular",
+        list: "List",
+        copyMeta: "Copy meta",
+        install: "Install",
+        uninstall: "Uninstall",
+
+        minOS: "Minimal OS version",
+        minRam: "Minimum RAM",
+        deps: "Dependencies",
+        searchPlaceholder: "Search apps...",
+        repoUnavailable: "Repository unavailable",
+        noInternet: "Your device isn't connected to Internet.",
+        checkInternet: "Check your Internet connection",
+        browseLocal: "Browse and open local apps",
+        retry: "Retry",
+        limitReached: "The service is temporarily paused due to monthly usage limits.",
+        resumeCycle: "It will resume when the next cycle begins.",
+        whatToDo: "What can you do now?",
+        waitNext: "Wait for the next cycle",
+        connectCustom: "Connect to custom repository",
+        tipTitle: "Tip:",
+        tipDesc: "Avoid frequently downloading large applications to reduce usage.",
+        
+        placeholderMeta: "Meta URL",
+        connectBtn: "Connect",
+        fillFields: "Please fill both fields.",
+        connectedSuccess: "Connected successfully!",
+        connectFailed: "Failed to connect. Check URLs.",
+        alertSuccess: "Successfully installed: ",
+        alertCopied: "Metapackage copied.",
+                alertSuccessRemove: "Successfully uninstalled: ",  // ← ADD THIS
+                moreFromDev: "More from this developer",
+                goesWellWith: "Goes well with" // ← ДОДАНО
+    },
+    fr: {
+        all: "Tout",
+        search: "Recherche",
+        popular: "Populaire",
+        list: "Liste des applications",
+        copyMeta: "Copier le méta",
+        install: "Installer",
+        uninstall: "Désinstaller",
+
+        minOS: "Version minimale de l'OS",
+        minRam: "RAM minimale",
+        deps: "Dépendances",
+        searchPlaceholder: "Rechercher des applications...",
+        repoUnavailable: "Dépôt indisponible",
+        noInternet: "Votre appareil n'est pas connecté à Internet.",
+        checkInternet: "Vérifiez votre connexion Internet",
+        browseLocal: "Parcourir les applications locales",
+        retry: "Réessayer",
+        limitReached: "Le service est temporairement suspendu en raison des limites d'utilisation mensuelles.",
+        resumeCycle: "Il reprendra au début du prochain cycle.",
+        whatToDo: "Que pouvez-vous faire maintenant?",
+        waitNext: "Attendre le prochain cycle",
+        connectCustom: "Connecter un dépôt personnalisé",
+        tipTitle: "Conseil:",
+        tipDesc: "Évitez de télécharger fréquemment de grandes applications pour réduire l'utilisation.",
+        
+        placeholderMeta: "URL Meta",
+        connectBtn: "Connecter",
+        fillFields: "Veuillez remplir les deux champs.",
+        connectedSuccess: "Connecté avec succès!",
+        connectFailed: "Échec de la connexion. Vérifiez les URL.",
+        alertSuccess: "Installé avec succès: ",
+        alertCopied: "Métapaquet copié.",
+                alertSuccessRemove: "Désinstallé avec succès: ",  // ← ADD THIS
+                moreFromDev: "Plus de ce développeur",
+                goesWellWith: "S'associe bien avec" // ← ДОДАНО
+    },
+    ru: {
+        all: "Все",
+        search: "Поиск",
+        popular: "Популярные",
+        list: "Список приложений",
+        copyMeta: "Копировать метапакет",
+        install: "Установить",
+        uninstall: "Удалить",
+
+        minOS: "Минимальная версия ОС",
+        minRam: "Минимальный объём ОЗУ",
+        deps: "Зависимости",
+        searchPlaceholder: "Поиск приложений...",
+        repoUnavailable: "Репозиторий недоступен",
+        noInternet: "Ваше устройство не подключено к Интернету.",
+        checkInternet: "Проверьте подключение к Интернету",
+        browseLocal: "Просматривать локальные приложения",
+        retry: "Повторить",
+        limitReached: "Обслуживание временно приостановлено из-за месячных лимитов использования.",
+        resumeCycle: "Оно возобновится с началом следующего цикла.",
+        whatToDo: "Что можно сделать сейчас?",
+        waitNext: "Дождаться следующего цикла",
+        connectCustom: "Подключить сторонний репозиторий",
+        tipTitle: "Совет:",
+        tipDesc: "Избегайте частой загрузки больших приложений для экономии трафика.",
+        
+        placeholderMeta: "Meta URL ссылки",
+        connectBtn: "Подключить",
+        fillFields: "Пожалуйста, заполните оба поля.",
+        connectedSuccess: "Успешно подключено!",
+        connectFailed: "Ошибка подключения. Проверьте URL.",
+        alertSuccess: "Успешно установлено: ",
+        alertCopied: "Метапакет скопирован.",
+                alertSuccessRemove: "Успешно удалено: ",  // ← ADD THIS
+                moreFromDev: "Больше от этого разработчика",
+                goesWellWith: "Отлично сочетается с" // ← ДОДАНО
+    },
+    pl: {
+        all: "Wszystko",
+        search: "Szukaj",
+        popular: "Popularne",
+        list: "Lista aplikacji",
+        copyMeta: "Kopiuj meta",
+        install: "Instaluj",
+        uninstall: "Odinstaluj",
+
+        minOS: "Minimalna wersja OS",
+        minRam: "Minimalna ilość RAM",
+        deps: "Zależności",
+        searchPlaceholder: "Szukaj aplikacji...",
+        repoUnavailable: "Repozytorium niedostępne",
+        noInternet: "Twoje urządzenie nie jest połączone z Internetem.",
+        checkInternet: "Sprawdź połączenie z Internetem",
+        browseLocal: "Przeglądaj lokalne aplikacje",
+        retry: "Ponów",
+        limitReached: "Usługa została tymczasowo wstrzymana z powodu miesięcznych limitów transferu.",
+        resumeCycle: "Zostanie wznowiona wraz z początkiem nowego cyklu.",
+        whatToDo: "Co możesz teraz zrobić?",
+        waitNext: "Poczekać na kolejny cykl",
+        connectCustom: "Połącz z własnym repozytorium",
+        tipTitle: "Wskazówka:",
+        tipDesc: "Unikaj częstego pobierania dużych aplikacji, aby ograniczyć użycie danych.",
+        
+        placeholderMeta: "Meta URL",
+        connectBtn: "Połącz",
+        fillFields: "Proszę wypełnić oba pola.",
+        connectedSuccess: "Połączono pomyślnie!",
+        connectFailed: "Nie udało się połączyć. Sprawdź adresy URL.",
+        alertSuccess: "Pomyślnie zainstalowano: ",
+        alertCopied: "Metapaczka skopiowana.",
+        alertSuccessRemove: "Pomyślnie odinstalowano: ",  // ← ADD THIS
+        moreFromDev: "Więcej od tego dewelopera",
+        goesWellWith: "Wygląda dobrze z" 
+    }
+};
+
+function isInstalled(app) {
+    const appName = (app.name || "").trim().toLowerCase();
+    
+    // 1. Extract base name from the entry path
+    const baseName = (app.entry || "")
+        .split("/")
+        .pop()
+        .split(".")[0]
+        .toLowerCase();
+
+    // 2. Map app types to their proper extensions
+
+
+    // Fallback to the entry path's own extension, defaulting to .js if none exists
+
+
+    const ext = '.' + app.type
+    const fileName = baseName + ext;
+
+    // 3. Check File System directly (Independent of getApps)
+    const fs = parent.getFs() || [];
+    const fileExists = fs.some(f => (f.name || "").toLowerCase() === fileName);
+    const fsNames = new Set(fs.map(f => (f.name || "").toLowerCase()));
+
+    if (fileExists || fsNames.has(appName) || fsNames.has(baseName)) {
+        return true;
+    }
+
+    // 4. Check registered apps list
+    return (parent.getApps() || []).some(a => {
+        if (a.system) return false;
+        
+        const name = (a.name || "").trim().toLowerCase();
+        const path = (a.path || "").toLowerCase();
+        
+        return (
+            name === appName ||
+            (path && path.includes(appName)) ||
+            (path && !baseName.includes("index") && path.includes(baseName)) || 
+            (app.type == 'wasm' && parent.libList().includes(app.name)) ||
+            (app.type == 'node' && parent.npmList().includes(app.name))
+
+        );
+    });
+}
+let currentStrings = translations[lang] || translations.en;
+
+// Функція локалізації статичних HTML елементів
+function applyDOMTranslations() {
+    document.getElementById("search-input").placeholder = currentStrings.searchPlaceholder;
+    document.getElementById("search-btn").innerText = currentStrings.search;
+    document.getElementById("title-popular").innerText = currentStrings.popular;
+    //document.getElementById("title-list").innerText = currentStrings.list;
+    document.getElementById("btn-copy-meta").innerText = currentStrings.copyMeta;
+    document.getElementById("btn-custom-repo").innerText = currentStrings.connectCustom;
+
+
+
+    // Type filter tabs (only "All" is a translated word — the rest are technical labels)
+    document.getElementById("tab-type-all").innerText = currentStrings.all;
+}
+
+function showNoInternetUI() {
+    err.innerHTML = `
+        <h2>${currentStrings.repoUnavailable}</h2>
+        ${currentStrings.noInternet}
+        <br><br>
+        <b>${currentStrings.whatToDo}</b>
+        <ul>
+            <li>${currentStrings.checkInternet}</li>
+            <li>${currentStrings.browseLocal}</li>
+        </ul>
+        <button onclick="start()">${currentStrings.retry}</button>
+        <br>
+    `;
+    err.style.display = "block";
+}
+
+function showTrafficLimitUI() {
+    err.innerHTML = `
+        <h2>${currentStrings.repoUnavailable}</h2>
+        ${currentStrings.limitReached}<br>
+        ${currentStrings.resumeCycle}
+        <br><br>
+        <b>${currentStrings.whatToDo}</b>
+        <ul>
+            <li>${currentStrings.waitNext}</li>
+            <li>${currentStrings.connectCustom}</li>
+        </ul>
+        <br>
+        <b>${currentStrings.tipTitle}</b><br>
+        ${currentStrings.tipDesc}
+        <br>
+        <button onclick="customRepo()">${currentStrings.connectCustom}</button>
+    `;
+    err.style.display = "block";
+}
+
+function customRepo() {
+    err.innerHTML = `
+        <h2>${currentStrings.connectCustom}</h2>
+        <input id="meta" placeholder="${currentStrings.placeholderMeta}"><br><br>
+        <button onclick="connect()">${currentStrings.connectBtn}</button>
+        <p id="status"></p>
+    `;
+    err.style.display = "block";
+}
+
+
+
+async function connect() {
+    const metaInput = document.getElementById("meta");
+    const status = document.getElementById("status");
+    const meta = metaInput.value.trim();
+    const repo = getRepoUrl(meta);
+    
+    if (!repo || !meta) {
+        status.innerText = currentStrings.fillFields;
+        return;
+    }
+    
+    try {
+        BASE_URL = repo;
+        META_URL = meta;
+        status.innerText = currentStrings.connectedSuccess;
+        const note = await start();
+        status.innerText = note;
+        localStorage.setItem("StoreRepo", meta);
+    } catch (e) {
+        status.innerText = currentStrings.connectFailed;
+        parent.console.error(e.message);
+    }
+}
+
+
+const start = async () => {
+    let ret;
+    
+
+    if (!navigator.onLine) {
+        showNoInternetUI();
+        return "Offline";
+    }
+
+    try {
+        const response = await fetch(META_URL);
+
+        if (!response.ok) {
+            if (response.status === 429 || response.status === 509) {
+                // Трафік / Ліміти
+                showTrafficLimitUI();
+                return "Limit reached";
+            }
+
+            throw new Error("HTTP " + response.status);
+        }
+
+        apps = await response.json().catch(()=>{showTrafficLimitUI();});
+
+        if (!Array.isArray(apps)) {
+            ret = "Invalid meta format";
+            return parent.console.error(ret);
+        }
+
+        if (response.ok) {
+            update();
+            ret = "Found: " + apps.length;
+            err.style.display = "none";
+
+            const queryString = window.location.search;
+            const urlParams = new URLSearchParams(queryString);
+            const url = new URL(window.location.href);
+                          // Populate Datalist
+              apps.forEach(a => {
+                  const el = document.createElement('option');
+                  el.value = a.name;
+                  datalist.appendChild(el);
+              });
+
+
+            if (urlParams.has('hl')){
+              currentStrings = translations[urlParams.get("hl") == 'uk' ? 'ua': urlParams.get("hl")];
+              parent.console.log('[Infinity Store] Language: '+ urlParams.get("hl") + " (URL-provided)")
+            }else{
+              parent.console.log('[Infinity Store] Language: '+ parent.getCurrLang() + " (system)")
+            }
+            applyDOMTranslations();
+
+            // market://details?id=MyApp
+            if (urlParams.has("id")) {
+                const appName = urlParams.get("id");
+                const app = apps.find(a => a.name === appName);
+
+                if (app) {
+                  parent.console.log('[Infinity Store] App: '+ urlParams.get("id"))
+                    openDialog(app);
+                }
+            }
+
+            // market://search?q=chat&c=tools
+            if (!urlParams.has("id")) {
+                if (urlParams.has("q")) {
+                    const input = document.getElementById("search-input");
+                    parent.console.log('[Infinity Store] Query: '+ urlParams.get("q"))
+
+                    if (input) {
+                        input.value = urlParams.get("q");
+                    }
+                }
+
+                if (urlParams.has('device')){
+                  parent.console.log('[Infinity Store] Device: '+ urlParams.get("device"));
+                  if (urlParams.get("device") == 'phone' || urlParams.get('device') == 'tablet'){
+                    currentDev = 'mobile';
+                  }
+                }
+
+                if (urlParams.has("c")) {
+                    let category = urlParams.get("c");
+
+                    switch (urlParams.get("c")){
+                    case 'apps':
+                    case '3':
+                      category = 'html'; // convert Play Store default category
+                      break;
+                    }
+                    parent.console.log('[Infinity Store] Category: '+ category)
+
+                    const tab = Array.from(
+                        document.querySelectorAll(".type-tab")
+                    ).find(t => t.dataset.type === category);
+
+                    if (tab) {
+                        tab.click();
+                    }
+                }
+
+                update();
+            }
+        }
+    } catch (e) {
+        console.error("Store load failed:", e);
+        ret = "Store load failed:" + e;
+        
+    }
+
+    parent.console.log("[Infinity Store] " + ret);
+    updateTabCounts();
+
+    return ret;
+};
+// Ініціалізація
+start();
+
+const appsContainer = document.getElementById("apps-list");
+const slidesWrapper = document.getElementById("slides-wrapper");
+const dialog = document.getElementById("app-dialog");
+const dialogContent = document.getElementById("dialog-content");
+const currentOS = parent.getDevProps().os.version;
+const currentRam = parseInt(parent.getDevProps().memory);
+
+function formatVersion(rawDate) {
+    const day = rawDate.slice(0, 2);
+    const month = rawDate.slice(2, 4);
+    const year = rawDate.slice(4, 8);
+    return `${year}${month}${day}`;
+}
+
+function getMinRam(app) {
+    if (!app?.tester) return 0; // Захист від undefined
+    for (const str of app.tester.split(' ')) {
+        if (str.includes('GB')) {
+            return parseInt(str); 
+        }
+    }
+    
+    return 0;
+}
+
+function isCompatible(app) {
+    return (formatVersion(currentOS) >= formatVersion(app.minOS) ) && (currentRam >= getMinRam(app));
+}
+
+function computeRating(app) {
+    const t = (app.tester || "").toLowerCase();
+    let score = 3.0;
+    allApps = apps; 
+
+    // --- Positive signals ---
+    if (t.includes("stable"))                               score += 1.5;
+    if (t.includes("runs on all devices") ||
+        t.includes("runs on most"))                         score += 0.5;
+    if (t.includes("low resource"))                         score += 0.5;
+    if (t.includes("low resource"))                         score += 0.5;
+    if (t.includes("applying successfully"))                score += 0.5;
+    if (t.includes("doesnt use storage"))                   score += 0.5;
+    if (t.includes("can be set as"))                        score += 1.0;
+
+    // --- Negative signals ---
+    if (t.includes("not playable"))                         score -= 2.0;
+    if (t.includes("unstable"))                             score -= 1.0;
+    if (t.includes("lags") || t.includes("lag"))            score -= 0.75;
+    if (t.includes("4gb ram"))                              score -= 1.5;
+    if (t.includes("2gb ram"))                              score -= 0.75;
+    if (t.includes("requires newer gpu") ||
+        t.includes("may require newer gpu"))                score -= 0.5;
+    if (t.includes("gpu recommended"))                      score -= 0.25;
+    if (t.includes("needs internet") ||
+        t.includes("requires high network") ||
+        t.includes("requires internet"))                score -= 0.5;
+    if (t.includes("unsupported on mobile"))                score -= 0.5;
+    if (t.includes("idb partition"))                score -= 0.5;
+    if (t.includes("sometimes") || t.includes("may lag"))   score -= 0.5;
+    if (t.includes("large files may lag"))                  score -= 0.25;
+    if (t.includes("drive root"))                  score -= 0.25;
+    if (t.includes("telemetry"))                         score -= 4.0; // Even if it was deleted, but original dev implemented it.
+
+     const allVersions = allApps.map(a => parseInt(formatVersion(a.minOS || "99999999"), 10));
+    const minVer = Math.min(...allVersions);
+    const maxVer = Math.max(...allVersions);
+    const appVer = parseInt(formatVersion(app.minOS || "99999999"), 10);
+    const userVer = parseInt(formatVersion(currentOS), 10);
+
+    // Bonus up to +0.5 based on where this app sits in the [min, max] spread
+    if (maxVer > minVer) {
+        const normalized = 1 - (appVer - minVer) / (maxVer - minVer); // 1 = oldest req, 0 = newest req
+        score += normalized * 0.5;
+    }
+
+    // Extra +0.25 if the app's required OS is older than the user's current OS
+    // (meaning it's comfortably within the user's compatibility range)
+    if (appVer <= userVer) score += 0.25;
+
+apps.find(a => a.name == app.name && a.desc == app.desc).rating = Math.min(5, Math.max(1, Math.round(score * 2) / 2));
+    return Math.min(5, Math.max(1, Math.round(score * 2) / 2));
+}
+async function uninstall(app) {
+    const entryName = (app.entry || "")
+        .split("/")
+        .pop()
+        .split(".")[0] // Strip extensions cleanly
+        .toLowerCase();
+
+    const appName = (app.name || "").trim().toLowerCase();
+
+    // 1. Process HTML type via registered app API
+    if (app.type === 'html') {
+        const appInstance = parent.getApps().find(a => {
+            if (a.system) return false;
+            const name = (a.name || "").trim().toLowerCase();
+            const path = (a.path || "").toLowerCase();
+
+            return (
+                name === appName ||
+                (path && path.includes(appName)) ||
+                (path && entryName !== "index" && path.includes(entryName))
+            );
+        });
+
+        if (appInstance) {
+            await parent.deleteApp(appInstance);
+        }
+    } 
+    // 2. Process all non-HTML types strictly in the file system
+    else {
+        // Build the dynamic file name directly using app.type as requested
+        const ext = app.type ? `.${app.type.toLowerCase()}` : '.js';
+        const targetFileName = entryName + ext;
+
+        const f = parent.getFs().find(file => {
+            const currentFileName = (file.name || "").toLowerCase();
+            return (
+                currentFileName === targetFileName ||
+                currentFileName.includes(appName) ||
+                currentFileName.includes(entryName)
+            );
+        });
+
+        if (f) {
+            await parent.deleteFile(f.name);
+        }
+    }
+
+    // 3. Fire the success notification & refresh the store UI anyway
+    new parent.Notification("Infinity Store", {
+        body: (currentStrings.alertSuccessRemove) + app.name,
+        icon: parent.getIcns().store
+    });
+
+    renderApps(apps);
+}
+
+function renderStars(rating, showNumber = 1) {
+    let html = '<span style="font-size:15px;letter-spacing:1px;line-height:1;">';
+    for (let i = 1; i <= 5; i++) {
+        const color = rating >= i ? '#EF9F27'
+                    : rating >= i - 0.5 ? '#EF9F27'
+                    : 'var(--color-text-tertiary, #aaa)';
+        const opacity = rating >= i ? '1'
+                      : rating >= i - 0.5 ? '0.5'
+                      : '0.25';
+        html += `<span style="color:${color};opacity:${opacity};">★</span>`;
+    }
+    if (showNumber)
+        html += ` <small>${rating.toFixed(1)}</small>`;
+    html += '</span>';
+    return html;
+}
+
+/* Cards */
+function createCard(app) {
+    const card = document.createElement("div");
+    card.className = "app-card";
+
+    const installed = isInstalled(app);
+    apps.find(a => a.name == app.name && a.desc == app.desc).installed = installed;
+    const compatible = isCompatible(app);
+
+    card.innerHTML = `
+        <p style="white-space: nowrap; font-weight: bold; font-size: 20px;">
+            ${app.name || ""}
+        </p>
+
+        <small style="display:flex; justify-content:space-between;">
+            ${app.developer || ""} ${renderStars(computeRating(app), 0)}
+        </small>
+
+        <br>
+
+        <button class="inst">${currentStrings.install}</button>
+        <button class="uninst">${currentStrings.uninstall}</button>
+    `;
+
+    const instBtn = card.querySelector(".inst");
+    const uninstBtn = card.querySelector(".uninst");
+
+    if (!compatible) instBtn.disabled = true;
+
+    instBtn.style.display = installed ? "none" : "";
+    uninstBtn.style.display = installed ? "" : "none";
+
+    card.onclick = () => openDialog(app);
+
+    instBtn.onclick = (e) => {
+        e.stopPropagation();
+        install(app.name);
+    };
+
+uninstBtn.onclick = async (e) => {
+    e.stopPropagation();
+
+    uninstall(app)
+}
+
+    return card;
+}
+
+function renderApps(list) {
+  if (list.length > 0){
+    appsContainer.innerHTML = "";
+    try {
+        list.forEach(app => appsContainer.appendChild(createCard(app)));
+    } catch(e) {}
+  }else{
+   appsContainer.innerHTML = String.raw`¯\_(ツ)_/¯`;
+  }
+}
+
+function renderDevAppsRow(app) {
+    if (!app.developer) return "";
+
+    const others = apps.filter(a =>
+        a.developer === app.developer);
+
+    if (others.length <= 1) return "";
+
+    return `
+        <hr>
+        <p><b>${currentStrings.moreFromDev}</b></p>
+        <div class="dev-apps-row" id="dev-apps-row"></div>
+    `;
+}
+
+function populateDevAppsRow(app) {
+    const row = document.getElementById("dev-apps-row");
+    if (!row) return;
+
+    const others = apps.filter(a =>
+        a.developer === app.developer
+    );
+    
+
+    row.innerHTML = "";
+    others.forEach(other => {
+        const mini = document.createElement("div");
+        mini.className = "dev-app-mini";
+
+        const hasBanner = other.banner && other.banner.trim() !== "";
+        const src = hasBanner
+            ? (other.banner.includes("://") ? other.banner : BASE_URL + other.banner)
+            : "";
+
+        mini.innerHTML = hasBanner
+            ? `<img class="mini-thumb" src="${src}" alt="">`
+            : `<div class="mini-thumb placeholder">${(other.name || "?").charAt(0).toUpperCase()}</div>`;
+
+        mini.innerHTML += `<small>${other.name || ""}</small>`;
+
+        mini.onclick = (e) => {
+            e.stopPropagation();
+            openDialog(other);
+        };
+
+        row.appendChild(mini);
+    });
+}
+function renderCarousel(list) {
+    slidesWrapper.innerHTML = "";
+
+    const shuffled = [...list].sort(() => Math.random() - 0.5);
+
+    shuffled.forEach(app => {
+        const slide = document.createElement("div");
+        slide.className = "mySlides";
+
+        const src = app.banner.includes("://")
+            ? app.banner
+            : BASE_URL + app.banner;
+
+        slide.innerHTML = `
+            <img class="bg" src="${src}" alt="">
+            <img class="fg" alt="${app.name || ""}" src="${src}">
+        `;
+
+        slide.onclick = () => openDialog(app);
+        slidesWrapper.appendChild(slide);
+    });
+
+    slideIndex = 1;
+    showSlides(slideIndex);
+}
+
+// Генерація каркаса DOM під схожі/зв'язані продукти
+function renderRelatedAppsRow(app) {
+    if (!app.related || app.related.length === 0) return '';
+    return `
+        <div class="related-apps-section">
+            <hr>
+            <h4>${currentStrings.goesWellWith}</h4>
+            <div class="related-apps-list" id="relatedAppsContainer"></div>
+        </div>
+    `;
+}
+function populateRelatedAppsRow(app) {
+    if (!app.related || app.related.length === 0) return;
+
+    const container = dialogContent.querySelector("#relatedAppsContainer");
+    if (!container) return;
+
+    // Use 'apps' (or the active global array) and trim string comparisons
+    const relatedObjects = app.related
+        .map(name => apps.find(a => a.name && a.name.trim() === name.trim()))
+        .filter(Boolean);
+
+    container.innerHTML = ""; // Clear existing contents prior to appending
+
+    relatedObjects.forEach(relApp => {
+        const item = document.createElement("div");
+        item.className = "related-app-card";
+        
+        const hasBanner = relApp.banner && relApp.banner.trim() !== "";
+        const src = hasBanner
+            ? (relApp.banner.includes("://") ? relApp.banner : BASE_URL + relApp.banner)
+            : '';
+
+        item.innerHTML = `
+            <img src="${src}" alt="" style="width: 32px; height: 32px; object-fit: cover; vertical-align: middle; margin-right: 8px;">
+            <span>${relApp.name || ''}</span>
+        `;
+        
+        item.onclick = (e) => {
+            e.stopPropagation();
+            openDialog(relApp);
+        };
+
+        container.appendChild(item);
+    });
+}
+
+
+
+function openDialog(app) {
+    dialog.style.display = "flex";
+
+    const installed = isInstalled(app);
+    const compatible = isCompatible(app);
+    const minRam = getMinRam(app);
+
+    // 1. Збираємо основний рядок шаблону
+    let html = `
+        <h2 style="user-select: text;">${app.name || ""}</h2>
+        <small style='user-select:text;'>${app.developer || ""}</small>
+        <br>
+        <button class="inst">${currentStrings.install}</button>
+        <button class="uninst">${currentStrings.uninstall}</button>
+
+        <p style="user-select: text;">${app.desc || ""}</p>
+        <p style='user-select:text;'><b style='user-select:none;'>${currentStrings.minOS}: </b>${app.minOS || "00000000"}</p>
+    `;
+
+
+    // 2. Додаємо RAM та депи
+    if (app.tester && app.tester.includes('GB') && minRam > 0) {
+        html += `<p style='user-select:text;'><b style='user-select:none;'>${currentStrings.minRam}: </b>${minRam}GB</p>`;
+    }
+    
+    if (app.requires && app.requires.length > 0) {
+        html += `<p style='user-select:text;'><b style='user-select:none;'>${currentStrings.deps}:</b> ${app.requires.join(", ")}</p>`;
+    }
+
+    // 3. Підвал картки та блочні секції (Developer Apps + Related Apps)
+    html += `
+        <hr>
+        <p>${renderStars(computeRating(app))}</p>
+        <p style='user-select:text;'>${app.tester || ""}</p>
+    `;
+
+    html += renderDevAppsRow(app); 
+    html += renderRelatedAppsRow(app); // NEW: Контейнер для зв'язаних додаток
+
+    // 4. Оновлюємо DOM
+    dialogContent.innerHTML = html;
+
+    populateDevAppsRow(app); 
+    populateRelatedAppsRow(app); // NEW: Наповнюємо контейнер інтерактивними елементами
+
+    // 5. Керування кнопками та подіями
+    const instBtn = dialogContent.querySelector(".inst");
+    const uninstBtn = dialogContent.querySelector(".uninst");
+
+    if (!compatible) instBtn.disabled = true;
+
+    instBtn.style.display = installed ? "none" : "";
+    uninstBtn.style.display = installed ? "" : "none";
+
+    instBtn.onclick = (e) => {
+        e.stopPropagation();
+        install(app.name);
+    };
+
+    uninstBtn.onclick = async (e) => {
+        e.stopPropagation();
+        uninstall(app);
+    };
+
+    dialog.onclick = (e) => {
+        if (e.target === dialog) dialog.style.display = "none";
+    };
+}
+
+
+
+
+
+/* Type filter tabs (moved out of the toolbar dropdown into the sidebar) */
+function setupTypeTabs() {
+    const tabs = document.querySelectorAll(".type-tab");
+    tabs.forEach(tab => {
+        tab.onclick = () => {
+            tabs.forEach(t => t.classList.remove("active"));
+            tab.classList.add("active");
+            currentMode = tab.dataset.type;
+            update();
+        };
+    });
+}
+setupTypeTabs();
+
+
+function updateTabCounts() {
+    if (!Array.isArray(apps)) return;
+    document.querySelectorAll(".type-tab").forEach(tab => {
+        const type = tab.dataset.type;
+        const count = type === "all"
+            ? apps.length
+            : apps.filter(a => a.type === type).length;
+        tab.innerText = `${tab.innerText} (${count})`;
+    });
+}
+
+/* Filters */
+const searchInput = document.getElementById("search-input");
+
+function filterApps() {
+    const mode = currentMode;
+    const dev = currentDev;
+    const query = searchInput.value.toLowerCase();
+
+    return apps.filter(app =>
+        (mode === "all" || app.type === mode) &&
+        (app.name || "").toLowerCase().includes(query) &&
+        !(dev === "mobile" &&
+          (app.tester || "").toLowerCase().includes("unsupported on mobile"))
+    );
+}
+
+async function install(name) {
+    const app = apps.find(a => a.name === name);
+    if (!app) {
+        parent.console.error("App not found in registry: " + name);
+        return 0;
+    }
+
+    const url = BASE_URL + app.entry;
+    parent.console.log("Downloading from: " + url);
+
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("HTTP error " + res.status);
+
+        const blob = await res.blob();
+        if (!blob) throw new Error("No BLOB provided.");
+if (blob.type == 'application/zip' || url.endsWith('.zip')){
+          const file = new File([blob], `tmp_${Date.now()}.zip`, {
+            type: blob.type || "application/zip"
+        });
+let path = "" // Put apps in root, so the files will be found. Apps use absolute paths, so it's for compatibility.
+if (app.type == "wasm") path = "system/shared";
+else if (app.type == "node") path = "system/node_modules"
+else if (app.type == 'theme') path = 'system/themes'
+        await parent.unzipFile(file, path);
+        if (app.type == "wasm" || app.type == "node") await parent.refreshLibs();
+}
+
+
+        if (app.requires && app.requires.length > 0) {
+          try{
+          const prg = new parent.progress(currentStrings.deps, 0, app.requires.length);
+          let ins = 0;
+          prg.oncancel = ()=> {
+            return;
+          }
+for (const re of app.requires) {
+    const dep = re.trim();
+
+    prg.setTitle(currentStrings.deps + ": " + dep);
+
+    if (apps.find(a => a.name === dep)) {
+        await install(dep);
+    } else {
+        try {
+            await parent.npmInstall(dep);
+        } catch {
+            prg.setTitle(currentStrings.connectFailed + ": " + dep);
+        }
+    }
+
+    ins++;
+    prg.setValue(ins);
+}
+prg.setTitle(currentStrings.alertSuccess)
+prg.close(); 
+        }catch (e){parent.console.error(e.message)}}
+
+        if (app.type === "js") {
+            const fileName = app.entry.split("/").pop().split(".")[0].toLowerCase() + '.js';
+            const fileExists = parent.getFs().find(f => f.name.toLowerCase() == fileName);
+            console.warn("JS got from entry: "+ fileName + fileExists)
+            if (fileExists) {
+                let autoload = [];
+                const autoloadString = localStorage.getItem('autoload') || "[]";
+                
+                if (autoloadString) {
+                    try {
+                        autoload = JSON.parse(autoloadString);
+                    } catch (e) {
+                        console.error("Autoload parse error:", e.message);
+                        autoload = [];
+                    }
+                }
+                console.log(autoload)
+
+                if (!autoload.includes(fileName)) {
+                    autoload.push(fileExists.name);
+                    localStorage.setItem('autoload', JSON.stringify(autoload));
+                }
+            }
+        }else if (app.type === "wasm") {
+            const fileName = 'system/wasm/'+app.entry.split("/").pop().split(".")[0].toLowerCase() + '.wasm';
+            const fileExists = parent.getFs().find(f => f.name.toLowerCase() == fileName);
+            console.warn("WASM got from entry: "+ fileName + fileExists)
+            if (fileExists) {
+                let autoload = [];
+                const autoloadString = localStorage.getItem('autoload') || "[]";
+                
+                if (autoloadString) {
+                    try {
+                        autoload = JSON.parse(autoloadString);
+                    } catch (e) {
+                        console.error("Autoload parse error:", e.message);
+                        autoload = [];
+                    }
+                }
+                console.log(autoload)
+
+                if (!autoload.includes(fileName)) {
+                    autoload.push(fileExists.name);
+                    localStorage.setItem('autoload', JSON.stringify(autoload));
+                }
+            }
+        }else if (app.type == "html"){
+            await parent.registerApps()
+            renderApps(apps)
+        }
+
+       new parent.Notification("Infinity Store",{body:currentStrings.alertSuccess + app.name, icon: parent.getIcns().store});
+       
+        return 1;
+
+    } catch (e) {
+        parent.console.error(`Installation failed for ${name}: ${e.message}`);
+        return 0;
+    }
+}
+
+function update() {
+    const filtered = filterApps();
+    renderApps(filtered);
+    try {
+        renderCarousel(filtered.filter(a => a.banner != ""));
+        if (filtered.filter(a => a.banner != "").length == 0){
+document.getElementById('sec1').style.display = 'none';
+        }else{
+document.getElementById('sec1').style.display = 'block';
+        }
+    } catch(e) {}
+}
+
+searchInput.oninput = update;
+
+/* Slideshow */
+let slideIndex = 1;
+
+function plusSlides(n) {
+    showSlides(slideIndex += n);
+}
+
+function showSlides(n) {
+    const slides = document.getElementsByClassName("mySlides");
+    if (!slides.length) return;
+    
+    if (n > slides.length) slideIndex = 1;
+    if (n < 1) slideIndex = slides.length;
+
+    for (let s of slides) {
+        s.style.display = "none";
+    }
+    slides[slideIndex - 1].style.display = "block";
+}
+
+setInterval(() => plusSlides(1), 4000);
+
+
+
+async function copyMeta(){
+    await navigator.clipboard.writeText(JSON.stringify(apps));
+    parent.alert(currentStrings.alertCopied);
+}
+
+document.addEventListener('keydown', async (event) => {
+    if (event.key === 'F12') {
+        event.preventDefault();
+        await copyMeta();
+    }
+});
+
+// setInterval(() =>{renderApps(filterApps(apps))}, 500)
+parent.regUrl("market://details", "Infinity Store");
+parent.regUrl("market://search", "Infinity Store")
+parent.regUrl("https://play.google.com", "Infinity Store")
+parent.regUrl("https://play.google.com", "Infinity Store")
+</script>
+</body>
+</html>

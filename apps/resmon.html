@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { user-select: none; box-sizing: border-box; }
+  
+  html, body {
+    overflow-x: hidden;
+  }
+
+  .charts-container {
+    display: flex;
+    gap: 15px;
+    width: 98.5%;
+    margin-bottom: 45px;
+    padding-bottom: 30px;
+    position: relative;
+    clear: both;
+  }
+
+  .chart-box {
+    flex: 1;
+    min-width: 0;
+    height: 220px;
+  }
+
+  canvas {
+    box-sizing: border-box; 
+    width: 100% !important;
+    height: 180px !important;
+  }
+
+  button { 
+    padding: 2px 8px; border: 1px solid #aaa; background-color: #ddd; 
+    cursor: pointer; font-weight: bold; 
+  }
+
+  .process-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0 10px;
+    margin-top: 10px;
+  }
+
+  .process-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--button-act-bg, #eee);
+    border-radius: 4px;
+    padding: 5px 5px;
+    border: 1px solid var(--button-act-border, #ccc);
+    min-width: 0;
+  }
+
+  .process-item.hidden {
+    background: var(--button-bg, #fff);
+    border: 1px solid var(--button-border, #ddd);
+  }
+
+  .process-info {
+    flex: 1;
+    min-width: 0;
+    cursor: pointer;
+  }
+
+  .process-title {
+    font-size: 0.95em;
+    font-weight: 500;
+    word-break: break-all;
+  }
+
+  .process-id {
+    color: #bbb;
+    font-size: 0.75em;
+    display: block;
+    margin-top: 2px;
+  }
+
+  .kill-btn:hover {
+    background-color: #ff4d4d;
+    color: white;
+    border-color: #ff3333;
+  }
+
+  p, h2 {
+    padding-left: 10px;
+  }
+
+  .stat-badge {
+    color: #d4af37;
+    font-weight: bold;
+    margin-left: 8px;
+  }
+
+  .stat-badge-cpu {
+    color: #0f796b;
+    font-weight: bold;
+    margin-left: 8px;
+  }
+</style>
+
+<link rel="stylesheet" href="global.css">
+</head>
+<body>
+
+<div class="charts-container">
+  <div class="chart-box">
+    <h2><span id="cpu_title">CPU:</span> <span id="cpu_val" class="stat-badge-cpu">0 ops</span></h2>
+    <canvas id="line-chart"></canvas>
+  </div>
+  
+  <div class="chart-box">
+    <h2><span id="ram_title">RAM:</span> <span id="ram_val" class="stat-badge">0 MB</span></h2>
+    <canvas id="ram-chart"></canvas>
+  </div>
+</div>
+
+<h2 id="processes_title">Processes:</h2>
+<div id="process-list" class="process-list"></div>
+
+<script src="../dist/chart.min.js"></script>
+
+<script>
+window.Worker = parent.Worker;
+
+// --- Localization ---
+const parentLang = window.parent._ || (s => s);
+document.getElementById('ram_title').innerText = parentLang("ram") + ":";
+document.getElementById('cpu_title').innerText = parentLang("cpu") + ":";
+document.getElementById('processes_title').innerText = parentLang("processes") + ":";
+
+const HISTORY_LIMIT = 50;
+
+// --- RAM CHART ---
+const ramData = new Array(HISTORY_LIMIT).fill(0);
+const limitData = new Array(HISTORY_LIMIT).fill(0);
+const mem = (navigator.deviceMemory || 4) * 1024;
+
+const ramValEl = document.getElementById('ram_val');
+const cpuValEl = document.getElementById('cpu_val');
+
+const ramChart = new Chart(document.getElementById("ram-chart"), {
+  type: "line",
+  data: {
+    labels: Array(HISTORY_LIMIT).fill(""),
+    datasets: [
+      { 
+        label: "Used",
+        pointStyle: false,
+        data: ramData, 
+        borderColor: "#d4af37", 
+        fill: true, 
+        backgroundColor: "rgba(212, 175, 55, 0.1)",
+        tension: 0.4,
+        pointRadius: 0
+      },
+      {
+        label: "Limit",
+        pointStyle: false,
+        data: limitData,
+        borderColor: "#ff4d4d",
+        borderDash: [5, 5],
+        borderWidth: 2,
+        fill: false,
+        pointRadius: 0,
+        order: 1
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false,
+    events: [], // Completely disables all event listeners (hover/click/tooltips)
+    layout: { padding: 0 },
+
+    scales: {
+      x: { display: false },
+      y: { 
+        beginAtZero: true, 
+        max: mem, 
+        grace: '5%',
+        ticks: {
+          callback: (value) => `${value} MB` // Displays dynamic tick ruler on the Y-axis
+        }
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: { enabled: false } // Disabled tooltips
+    }
+  }
+});
+
+function updateRAM() {
+  let memoryUsage = 0;
+  let heapLimit = 0;
+
+  if (performance.memory) {
+    memoryUsage = (performance.memory.usedJSHeapSize / 1048576);
+    heapLimit = (performance.memory.jsHeapSizeLimit / 1048576);
+  } else {
+    const processCount = document.getElementsByClassName("winbox").length;
+    memoryUsage = 10 + processCount * 2.5;
+  }
+
+  ramData.shift();
+  ramData.push(memoryUsage);
+  limitData.fill(heapLimit);
+
+  // Update live values in the header badge
+  ramValEl.innerText = `${memoryUsage.toFixed(1)} MB`;
+
+  ramChart.update('none');
+}
+
+setInterval(updateRAM, 1000);
+
+
+// --- CPU CHART ---
+const workerCode = `
+// Inside the worker
+setInterval(() => {
+  const start = performance.now();
+  let iterations = 0;
+
+  while (performance.now() - start < 10) {
+    iterations++;
+  }
+
+  // Convert to estimated operations per second
+const elapsed = performance.now() - start;
+const opsPerSecond = iterations * 1000 / elapsed;
+postMessage(opsPerSecond);
+}, 100);
+`;
+
+const blob = new Blob([workerCode], { type: "text/javascript" });
+const blobUrl = window.URL.createObjectURL(blob);
+const processWorker = new Worker(blobUrl);
+
+const performanceData = new Array(HISTORY_LIMIT).fill(0);
+
+const chart = new Chart(document.getElementById("line-chart"), {
+  type: "line",
+  data: {
+    labels: Array(HISTORY_LIMIT).fill(""),
+    datasets: [{
+      data: performanceData,
+      borderColor: "#0f796b",
+      fill: true,
+      tension: 0.4,
+      pointRadius: 0
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: false,
+    events: [], // Completely disables hover events
+    layout: { padding: 0 },
+    pointStyle: false,
+    scales: {
+      x: { display: false },
+      y: { 
+        beginAtZero: true,
+        ticks: {
+          callback: (value) => `${value}` // Direct numeric Y-axis ruler scale
+        }
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: { enabled: false } // Disabled tooltips
+    }
+  }
+});
+
+processWorker.onmessage = (e) => {
+  performanceData.shift();
+  performanceData.push(e.data);
+  
+cpuValEl.innerText = `${Math.round(e.data).toLocaleString(parent.getCurrDateLang())} op/sec`;
+  chart.update('none');
+};
+
+
+// --- PROCESS MANAGER ---
+const processContainer = document.getElementById('process-list');
+
+function updateProcessList() {
+  const processes = [];
+
+  try {
+    const winboxCollection = window.parent.document.getElementsByClassName("winbox");
+    for (let i = 0; i < winboxCollection.length; i++) {
+      const el = winboxCollection[i];
+      const title = el.querySelector('.wb-title')?.innerText || el.winbox?.title || parentLang("unknown");
+      processes.push({ id: el.id, title, type: 'winbox', isHidden: el.classList.contains("hide") });
+    }
+  } catch (e) {}
+
+  try {
+    const workers = parent.getSysWorkers() || [];
+    workers.forEach(w => {
+      const id = w.url ? w.url.split('/').pop() : 'worker';
+      processes.push({ id: w.id, title: id, type: 'worker', isHidden: false });
+    });
+  } catch (e) {}
+
+  try {
+    const obsrvs = parent.getMutObsrvs() || [];
+    obsrvs.forEach(w => {
+      processes.push({ id: w.id, title: w.id, type: 'observer', isHidden: false });
+    });
+  } catch (e) {}
+
+  try {
+    const abortCtrls = parent.getAbortCtrls();
+    abortCtrls.forEach(c => {
+      processes.push({ id: c.id, title: c.signal.reason || 'controller_' + c.id, type: 'abortController', isHidden: c.signal.aborted });
+    });
+  } catch (e) {}
+
+  const fragment = document.createDocumentFragment();
+
+  processes.forEach(proc => {
+    const item = document.createElement('div');
+    item.className = 'process-item ' + (proc.isHidden ? 'hidden' : "");
+    item.innerHTML = `
+      <div class="process-info" onclick="parent.fore('${proc.id}', '${proc.type}');">
+        <span class="process-title">${proc.title}</span>
+        <span class="process-id">${proc.id}</span>
+      </div>
+      <button class="kill-btn" onclick="parent.kill('${proc.id}', '${proc.type}'); updateProcessList();">
+        ×
+      </button>
+    `;
+    fragment.appendChild(item);
+  });
+
+  processContainer.innerHTML = '';
+  processContainer.appendChild(fragment);
+}
+
+setInterval(updateProcessList, 1000);
+updateProcessList();
+
+window.addEventListener('pagehide', () => {
+  processWorker.terminate();
+  window.URL.revokeObjectURL(blobUrl);
+});
+</script>
+
+</body>
+</html>

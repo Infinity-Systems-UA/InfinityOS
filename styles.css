@@ -1,834 +1,452 @@
-/* =============================================
-   DESIGN TOKENS
-   ============================================= */
-:root {
-  /* Brand */
-  --accent-color: #326ba8;
-
-  /* Backgrounds */
-  --bg-body:             white;
-  --bg-splash:           black;
-  --bg-menu:             rgba(0, 0, 0, 0.5);
-  --bg-menu-item-hover:  rgba(1, 1, 1, 0.5);
-  --bg-progress-track:   #7F7F7F;
-  --bg-progress-fill:    white;
-  --bg-panel: transparent;
-
-  /* Text */
-  --color-text-primary:     black;
-  --color-text-secondary:   gray;
-  --color-text-muted:       darkgray;
-  --color-text-tretiary: white;
-  --panel-height: 35px;
+:root {    --accent-color: #326ba8;    --bg-body:             white;  --bg-splash:           black;  --bg-menu:             rgba(0, 0, 0, 0.5);  --bg-menu-item-hover:  rgba(1, 1, 1, 0.5);  --bg-progress-track:   #7F7F7F;  --bg-progress-fill:    white;  --bg-panel: transparent;    --color-text-primary:     black;  --color-text-secondary:   gray;  --color-text-muted:       darkgray;  --color-text-tretiary: white;  --panel-height: 35px;    --color-win-act: transparent;  --color-win-ina: transparent;    --color-selection:        rgb(0, 110, 180);    --shadow-notification:    0 10px 30px rgba(0, 0, 0, 0.4);    --radius-sm:   5px;  --radius-md:   10px;  --radius-lg:   20px;  --radius-pill: 50px;  --radius-full: 100px;      --blur: 10px;    --transition-fade:  opacity 0.5s ease-out, visibility 0.5s;  --transition-grow:  background-size 0.1s ease-in-out;    --info-text: #fff;}.blink {  animation: blink 1s infinite;}@keyframes blink {  0%, 50% {    opacity: 1;  }  51%, 100% {    opacity: 0;  }}
 
 
-
-  /* Window */
-  --color-win-act: transparent;
-  --color-win-ina: transparent;
-
-  /* Selection */
-  --color-selection:        rgb(0, 110, 180);
-
-  /* Shadows */
-  --shadow-notification:    0 10px 30px rgba(0, 0, 0, 0.4);
-
-
-  /* Radius */
-  --radius-sm:   5px;
-  --radius-md:   10px;
-  --radius-lg:   20px;
-  --radius-pill: 50px;
-  --radius-full: 100px;
-  
-  /* Blur */
-  --blur: 10px;
-
-  /* Transitions */
-  --transition-fade:  opacity 0.5s ease-out, visibility 0.5s;
-  --transition-grow:  background-size 0.1s ease-in-out;
-  
-  --info-text: #fff;
-}
-
-.blink {
-  animation: blink 1s infinite;
-}
-
-@keyframes blink {
-  0%, 50% {
-    opacity: 1;
-  }
-  51%, 100% {
-    opacity: 0;
-  }
-}
-
-/* =============================================
-   BASE
-   ============================================= */
-
-body {
-  background-color: black;
-background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  overflow: hidden !important;
-  margin: 0;
-  padding: 0;
-
-  user-select: none;
-  scroll-behavior: smooth;
-}
-
-body.win_cla{
-  background-color: teal;
-}
-
-
-
-
-
-/* =============================================
-   SPLASH SCREEN
-   ============================================= */
+body {  background-color: black;background-size: cover;  background-position: center;  background-repeat: no-repeat;  overflow: hidden !important;  margin: 0;  padding: 0;  user-select: none;  scroll-behavior: smooth;     overflow: hidden;}body.win_cla{  background-color: teal;}
 #splash {
-  position: fixed;
-  background: var(--bg-splash);
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 9999999999;
-  cursor: none !important;
-
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-
-  opacity: 1;
-  visibility: visible;
-}
-
-#splash.hidden {
-  opacity: 0;
-  visibility: hidden;
-  display: none;
-}
-
-/* Стилі для самого оверлею сну */
-#system-sleep-overlay {
     position: fixed;
-    top: 0; 
-    left: 0;
-    width: 100vw; 
-    height: 100vh;
-    background: #000000;
-    z-index: 999999; 
-    pointer-events: none; /* Кліки проходять крізь оверлей */
-    display:none;
-    animation: show;
-    transition: opacity ease-in 0.5s;
-}
-
-@keyframes show{
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-
-body.os-suspended, 
-body.os-suspended *,
-#system-sleep-overlay {
+    inset: 0;
+    background: var(--bg-splash);
+    z-index: 9999999999;
     cursor: none !important;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    opacity: 1;
+    visibility: visible;
+    font-family: monospace;
+    overflow: hidden;
+    box-sizing: border-box;
 }
 
 
-.hidden{
-  opacity: 0;
-  visibility: hidden;
-  display:  none;
+body.hi-contr * {
+    font-weight: bold;
+  -webkit-text-stroke: 1px black; 
+  paint-order: stroke fill; /* Forces the stroke BEHIND the fill */
 }
 
-.animHidden {
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
+body.no-anims * {
+  opacity: 1;
+  animation: none;
+  transform: none;
+  transition: none;
 }
 
-.loading{
-  cursor: wait !important;
+.front{z-index: 9999;}
+#splash.hidden {  opacity: 0;  visibility: hidden;  display: none;}
+
+#system-sleep-overlay {    position: fixed;    top: 0;     left: 0;    width: 100vw;     height: 100vh;    background: #000000;    z-index: 999999;     pointer-events: none;     display:none;    animation: show;    transition: opacity ease-in 0.5s;}@keyframes show{  from { opacity: 0; }  to   { opacity: 1; }}body.os-suspended, body.os-suspended *,#system-sleep-overlay {    cursor: none !important;}.hidden{  opacity: 0;  visibility: hidden;  display:  none;}.loading,.loading * {  cursor: wait !important;}
+.tra:not(.win_cla) .wb-body{background:transparent !important;color:white !important; text-shadow: 1px 1px 1px #000;}#loadprg {  height: 6px;  appearance: none;  -moz-appearance: none;  -webkit-appearance: none;  width: min(60vw, 200px);  border-radius: var(--radius-pill);  background-color: var(--bg-progress-track);  border: none;  overflow: hidden;  margin-top: 25px;  display: block;}#loadprg::-webkit-progress-value {  background-color: var(--bg-progress-fill);  transition: width 0.15s ease-in-out;}#loadprg::-moz-progress-bar {  background-color: var(--bg-progress-fill);}#loadprg::-webkit-progress-bar {  background-color: var(--bg-progress-track);  border-radius: var(--radius-pill);}
+
+.menu input[type="checkbox"] { opacity: 0.8;}
+.disabled{  pointer-events: none;  color:var(--color-text-inactive, darkgray) !important; }   
+@keyframes grow {  from { opacity: 0; transform: scale(0.8); }  to   { opacity: 1; transform: scale(1); }}
+.menu { 
+  color: var(--color-text-tretiary); 
+  padding: 5px; 
+  border-radius: var(--radius-md); 
+  position: absolute; 
+  z-index: 99999; 
+  display: none; 
+  transform-origin: top left; 
+  animation: grow 0.2s ease-out forwards; 
+  background: var(--bg-menu); 
 }
 
-.tra:not(.win_cla) .wb-body{
-background:transparent !important;
-color:white !important; 
-text-shadow: 1px 1px 1px #000;
-}
-
-
-
-/* =============================================
-   PROGRESS BAR
-   ============================================= */
-#loadprg {
-  height: 6px;
-  appearance: none;
-  -moz-appearance: none;
-  -webkit-appearance: none;
-
-  width: min(60vw, 200px);
-  border-radius: var(--radius-pill);
-  background-color: var(--bg-progress-track);
-  border: none;
-  overflow: hidden;
-  margin-top: 25px;
-  display: block;
-}
-
-#loadprg::-webkit-progress-value {
-  background-color: var(--bg-progress-fill);
-  transition: width 0.15s ease-in-out;
-}
-
-#loadprg::-moz-progress-bar {
-  background-color: var(--bg-progress-fill);
-}
-
-#loadprg::-webkit-progress-bar {
-  background-color: var(--bg-progress-track);
-  border-radius: var(--radius-pill);
-}
-
-
-
-
-/* =============================================
-   CHECKBOX (inside .menu)
-   ============================================= */
-.menu input[type="checkbox"] {
-  appearance: none;
-  width: 15px;
-  margin-left: 0;
-  height: 15px;
-  border-radius: var(--radius-sm);
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  line-height: 1;
-  vertical-align: middle;
-  transition: all 0.18s ease;
-}
-
-.menu input[type="checkbox"]:checked {
-  line-height: 1;
-}
-
-.menu input[type="checkbox"]:checked::after {
-  content: "✔";
-  font-size: 15px;
-  border: solid 1px rgba(1, 1, 1, 0.5);
-  border-radius: var(--radius-full);
-  color: var(--accent-color);
-}
-
-.menu input[type="checkbox"]:disabled {
-  opacity: 0.5;
-}
-
-.disabled{
-  pointer-events: none;
-  color:gray !important;
-}
-
-
-
-/* =============================================
-   CONTEXT MENU
-   ============================================= */
-
-   @keyframes grow {
-  from { opacity: 0; transform: scale(0.8); }
-  to   { opacity: 1; transform: scale(1); }
-}
-
-.menu {
-  padding: 5px;
-  border-radius: var(--radius-md);
-  position: absolute;
-  z-index: 99999;
-  display: none;
-  transform-origin: top left;
-  animation: grow 0.2s ease-out forwards;
-  background: var(--bg-menu);
-  
-}
-
-
-
-.menu > li {
-  border-radius: var(--radius-md);
-  list-style: none;
-  color: var(--color-text-tretiary);
-  padding: 5px;
+/* Vertical items: direct children of .menu */
+.menu > li, .menu > .sub > li { 
+  border-radius: var(--radius-md); 
+  list-style: none; 
+  padding: 5px; 
   height: 20px !important;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.menu > li > p,
-.menu > li > label {
-  display: inline-block;
+
+
+.menu li p,
+.menu li label { 
+  display: inline-block; 
   margin: 0;
 }
 
-.menu > li:hover {
+.menu li:hover { 
   background: var(--bg-menu-item-hover);
 }
 
-.menu > li > span {
+.menu li span { 
+  padding-left: 5px; 
+  color: var(--color-text-muted);
+} 
+
+.menu li > img{
+  height: 22px;
+  width:auto;
+  margin-right:5px;
+}
+
+/* Top Horizontal Row Specifics */
+.menu-row-top li {
+  flex: 1;
+  list-style: none;
+  border-radius: var(--radius-md);
+  padding: 5px 5px;
+  line-height: 7px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0px; /* Adjust or remove to bring label and shortcut closer */
+}
+.menu-row-top li p {
+  padding: 0;
+  margin:0; /* Remove left padding to keep shortcut perfectly centered */
+  font-size: 0.8em;
+} 
+
+.menu-row-top li svg{
+    width:20px;
+    height:auto;
+    margin-bottom:5px;
+}
+
+.menu-row-top li span {
+  padding: 0;
+  margin:0; /* Remove left padding to keep shortcut perfectly centered */
+  font-size: 0.5em;
+} 
+
+
+
+/* Normal horizontal row behavior */
+.menu-row-top {
+  display: flex;
+  gap: 4px;
+}
+
+/* Single item fallback: converts top row button to standard vertical layout */
+.menu-row-top.single-item {
+  flex-direction: column;
+  gap: 0;
+}
+
+.menu-row-top.single-item li {
+  flex-direction: row;
+  justify-content: space-between !important;
+  align-items: center;
+  height: 20px;
+  line-height: normal;
+  padding: 5px;
+  text-align: left;
+}
+
+/* Hide SVG icon and extra <br> elements when rendering as vertical list */
+.menu-row-top.single-item li svg,
+.menu-row-top.single-item li br {
+  display: none;
+}
+
+/* Re-adjust text sizes to match standard menu list items */
+.menu-row-top.single-item li p {
+  font-size: 1em;
+}
+
+.menu-row-top.single-item li span {
+  font-size: 1em;
   padding-left: 5px;
   color: var(--color-text-muted);
 }
 
-/* =============================================
-   DESKTOP ICON GRID
-   ============================================= */
-  
-#desktopApps {
-  display: grid;
-  grid-template-rows: repeat(auto-fit, minmax(12vh, 80px));
-  grid-auto-flow: column;
-  grid-auto-columns: 80px;
-  justify-content: flex-start;
-  gap: 0;
-  z-index: 1;
-height: calc(100vh - var(--panel-height));
-  overflow: hidden;
-  margin-bottom: var(--panel-height);
-}
-body.panel-at-top #desktopApps{
-  margin-top: var(--panel-height);
-}
-
-#desktopApps > div {
-  height: 80px;
-  width: 80px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  text-align: center;
-  padding: 15px;
-  filter: drop-shadow(0 0 1px black);
-  transition: all 0.85s;
-}
-
-
-/* =============================================
-   MISC
-   ============================================= */
-iframe #document {
-  background: rgba(0, 0, 0, 0);
-}
+#desktopApps {  display: grid;  grid-template-rows: repeat(auto-fit, minmax(12vh, 80px));  grid-auto-flow: column;  grid-auto-columns: 80px;  justify-content: flex-start;  gap: 0;  z-index: 1;height: calc(100vh - var(--panel-height));  overflow: hidden;  margin-bottom: var(--panel-height);}body.panel-at-top #desktopApps{  margin-top: var(--panel-height);}
+#desktopApps > div {    position: relative;   height: 80px;  width: 80px;  display: flex;  flex-direction: column;  align-items: center;  justify-content: center;  font-size: 15px;  text-align: center;  padding: 15px;  filter: drop-shadow(0 0 1px black);  transition: all 0.85s;}iframe #document {  background: rgba(0, 0, 0, 0);}
 
 #notify {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 0;
+    position: absolute;
+    inset: 0;
+    width: auto;
+    height: auto;
+    z-index: 0;
 
-  pointer-events: none;
+    overflow-y: auto;
+    overflow-x: hidden;
 
-  display: flex;
-  flex-direction: column;
-  color: var(--color-text-secondary);
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    color: var(--color-text-secondary);
 }
 
-
-
-
-/* =============================================
-   WINBOX — MINIMIZED
-   ============================================= */
-.winbox.max {
-  height: calc(100% - var(--panel-height)) !important;
-}
-
-body.panel-at-top .winbox.max {
-    top: var(--panel-height) !important;
-}
-
-/* Якщо таскбар знизу */
-.winbox.min {
-  bottom: 0 !important; /* ПРИМУСОВО притискаємо */
-  top: calc(100% - var(--panel-height)) !important;
-z-index: 9999;
-/* Додаємо !important, щоб JS-розрахунки бібліотеки не заважали */
-height: var(--panel-height) !important;
-min-height: var(--panel-height) !important;
-}
-
-.winbox.min.first-min {
-  left: 40px !important;
-} 
-
-body.panel-at-top .winbox.min {
-  top: 0 !important;
-  bottom: auto;
-}
-
-
-#desktop-fore {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: 0; 
-  
-  /* Магія клік-наскрізності для самого контейнера */
-  pointer-events: none; 
-  
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-
-  /* Ефект прозоро-розмитого тексту */
-  color: transparent;
-  text-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
-}
-
-/* ГАРАНТІЯ: Усі елементи всередині форграунду теж ігнорують мишу */
-#desktop-fore * {
-  pointer-events: none !important;
-  user-select: none !important; /* Додатково вимикаємо спроби виділити текст */
-}
-
-.GPU_DRAW *{
-  will-change: contents;
-  will-change: scroll-position;
-}
-
-.GPU_DRAW ul{
-  will-change: transform;
-will-change: opacity;
-}
-
-.GPU_DRAW .winbox{
-will-change: left, top;
-}
-
-/* =============================================
-   WINBOX — GLASS THEME
-   ============================================= */
-.glass-theme:not(body), .win_aero:not(body) {
-    text-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); /* Сучасна тінь */
-    border: solid 1px #aaaaaa55;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px); /* Сумісність */
-
-    
-}
-
-.win_cla, .win_cla *{
-box-shadow: none;
-animation: none !important;
-transform: none !important;
-transition: none !important;
-opacity: 1 !important;
-}
-
-.win_cla svg{
-  filter: none;
-}
-
-.winbox.is-cont-hidden{
-      background: transparent !important;
-  /* 10px solid border with 50% opacity */
-}
-
-.winbox.win_cla.is-cont-hidden{
-    border: 5px solid rgba(0, 0, 0, 0.5) !important; 
-}
-
-
-.winbox.is-cont-hidden .wb-header *, .winbox.is-cont-hidden .wb-body {
-    /* Makes the element non-interactive so it doesn't block clicks */
-  pointer-events: none; 
-  visibility: hidden !important;
-  opacity: 0;
-  transition: none; /* Disables the transition entirely */
-
-}
-
-.winbox{
-animation: grow 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+/* Animation Keyframes */
+@keyframes macAppLaunch {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  /* Slower scale-up: takes 60% of the timeline to reach full size and fade out */
+  75% {
+    transform: scale(1.8);
     opacity: 0;
-    transform: scale(0.85) translateY(20px);
-    animation: winOpen 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-    will-change: transform, opacity; /* Оптимізація для відеокарти */
-border-radius: var(--radius-md); /* Заокруглення для сучасного вигляду */
+  }
+  /* Brief invisible hold */
+  80% {
+    transform: scale(1.8);
+    opacity: 0;
+  }
+  /* Returns back to resting size */
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+/*
+.appIcon.launching {
+  animation: macAppLaunch 0.7s cubic-bezier(0.25, 1, 0.5, 1);
+  pointer-events: none;
+}*/
 
+.appIcon.launching {
+  animation: macAppLaunch 0.5s cubic-bezier(0.1, 1, 0.1, 1);
+  pointer-events: none; 
 }
 
-.winbox:not(.play):not(.is-cont-hidden) {
-  background: var(--color-win-ina) !important;
-
-}
-
-
-
-.winbox.focus:not(.is-cont-hidden)
-{
-  background: var(--color-win-act) !important;
-}
-
-
-
-
-
-
-
-/* 2. Стилізація тіла вікна (контент) */
-.winbox .wb-body {
-    /* Забезпечуємо, щоб тіло вікна також було прозорим/або темним, якщо це потрібно */
-    margin: 5px; /* Прибираємо  відступ, якщо він заважає */
-    color: #000; /* Білий текст для контрасту з темним фоном */
-    background: var(--bg-body);
-    border-radius: var(--radius-md);
-    transition: all, 0.5s;
-}
-
-/* 3. Стилізація заголовка */
-.winbox .wb-title {
-    color: #fff; /* Білий заголовок */
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); /* Для читабельності */
-}
-
-.winbox .wb-header,
-.winbox .wb-header *{
-  cursor: default !important;
-}
-
-.winbox:not(.win_cla) .wb-control > *{
-  transform: scale(0.95);
-  border-radius: var(--radius-md);
-  background-size: 0px; /* ЗНАЧОК ПРИХОВАНО: нульовий розмір фону */
-  background-repeat: no-repeat;
-  background-position: center;
-  background-blend-mode: overlay;
-  transition: background-size 0.1s ease-in-out; /* Додаємо плавний перехід */
-}
-
-.winbox.win_cla .wb-control > * {
-    background-blend-mode: difference;
-}
-
-/* 2. ПОКАЗУЄМО ІКОНКУ ПРИ НАВЕДЕННІ НА КОЖНУ КНОПКУ */
-.winbox:not(.win_cla) .wb-control > *:hover,
-.winbox:not(.win_cla) .wb-control > *.hover {
-    background-size: 70%; /* ЗНАЧОК ПОКАЗАНО: встановлюємо видимий розмір */
-}
-.winbox .wb-max {
-  background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2Utd2lkdGg9IjIuNSIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBkPSJNOCAzSDVhMiAyIDAgMCAwLTIgMnYzbTE4IDBWNWEyIDIgMCAwIDAtMi0yaC0zbTAgMThoM2EyIDIgMCAwIDAgMi0ydi0zTTMgMTZ2M2EyIDIgMCAwIDAgMiAyaDMiLz48L3N2Zz4=);
-}
-
-.winbox.glass-theme:not(.focus) .wb-header *{
-  color: lightgray;
-}
-
-.winbox:not(.win_cla) .wb-max {
-  background-color: rgba(35, 140, 35, 60%);
-}
-
-.winbox.max .wb-max {
-  background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9IiNmZmYiIHZpZXdCb3g9IjAgMCA5NiA5NiI+PHBhdGggZD0iTTIwIDcxLjMxMUMxNS4zNCA2OS42NyAxMiA2NS4yMyAxMiA2MFYyMGMwLTYuNjMgNS4zNy0xMiAxMi0xMmg0MGM1LjIzIDAgOS42NyAzLjM0IDExLjMxMSA4SDI0Yy0yLjIxIDAtNCAxLjc5LTQgNHY1MS4zMTF6Ii8+PHBhdGggZD0iTTkyIDc2VjM2YzAtNi42My01LjM3LTEyLTEyLTEySDQwYy02LjYzIDAtMTIgNS4zNy0xMiAxMnY0MGMwIDYuNjMgNS4zNyAxMiAxMiAxMmg0MGM2LjYzIDAgMTItNS4zNyAxMi0xMnptLTUyIDRjLTIuMjEgMC00LTEuNzktNC00VjM2YzAtMi4yMSAxLjc5LTQgNC00aDQwYzIuMjEgMCA0IDEuNzkgNCA0djQwYzAgMi4yMS0xLjc5IDQtNCA0SDQweiIvPjwvc3ZnPg==);
-}
-
-.winbox:not(.win_cla) .wb-min {
-  background-color: rgb(255, 215, 0, 60%);
-}
-
-.winbox:not(.win_cla) .wb-close {
-  background-color: rgba(220, 20, 60, 60%);
-}
-
-.winbox .wb-full {
-  display: none !important;
-}
-
-.winbox.min .wb-control  {
+#notify::-webkit-scrollbar {
     display: none;
 }
 
-.winbox.max .wb-close  {
-    border-top-right-radius: 0;
-}
-
-.winbox.max {
-    
-    border-radius: 0;
-    border: none;
-}
-
-.winbox.max .wb-body {
-    border-radius: 0;
-}
-
-
-/* =============================================
-   FOOTER / panel
-   ============================================= */
-footer {
-  position: fixed;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  bottom: 0;
-  line-height: 1;
-  margin: 0;
-  padding: 5px;
-  width: 100vw;
-  border-radius: none;
-  color: var(--color-text-tretiary);
-  font-size: 20px;
-  background: var(--bg-panel) !important;
-  height: calc(var(--panel-height) - 10px);
-}
-
-footer > img {
-  height: 25px;
-  border-radius: var(--radius-full);
-}
-
-.right {
-  margin-right: 15px;
-  display: inline-flex;
-  align-items: center; /* Центрує батарею, звук та годинник строго по вертикалі */
-  gap: 10px; /* Додасть гарний однаковий відступ між іконками та годинником */
-  height: 100%; /* Розтягуємо на всю висоту панелі завдань */
-}
-
-.right span {
-  height: 100%;
-  display: inline-flex;    /* Дозволяє спану працювати як flex-контейнер */
-  align-items: center;     /* Центрує SVG по вертикалі */
-  justify-content: center; /* Центрує SVG по горизонталі */
-}
-
-.right svg{
-    width: 20px;
-    height: 20px;
-}
-
-body.panel-at-top .notification {
-  top: calc(var(--panel-height) + 10px);
-  bottom: auto;
-}
-
-#sysmenu {
-  position: fixed;
-  z-index: 10000;
-  font-size: 20px;
-  background: var(--bg-panel) !important;
-  box-shadow: none;
-  display: none;
-  bottom: var(--panel-height);
-  top: auto;
-  border-radius: 0px;
-  border-top-right-radius: var(--radius-md);
-  max-width: 50vw;
-  /* Захист для всього меню: якщо воно раптом виросте, 
-     воно не повинно ламати екран */
-  flex-direction: column;
-}
-
-body.panel-at-top #sysmenu {
-  top: var(--panel-height);	
-  border-radius: 0px;
-  border-bottom-right-radius: var(--radius-md);
-  bottom: auto;
-  
-}
-
-#sysmenu * {
-  color: var(--color-text-tretiary);
-}
-
-body:not(.win_cla) #sysmenu *{
-    background: none !important;
-  border: none !important; 
-  text-shadow: 1px 1px 1px #000 !important;
-}
-
-/* Details/Summary styling */
-#sysmenu details {
-  padding-left: 5px;
-  padding-right: 5px;
-}
-
-#sysmenu .sysmenu-actions *{
-  font-size: 15px;
-  cursor: pointer;
-
-}
-
-#sysmenu .sysmenu-actions svg {
-  filter: drop-shadow(1px 1px 5px rgb(0 0 0));
-}
-
-.appmenu-category {
-  user-select: none;
-  display: flex;
-  align-items: center;
-  color: var(--color-text-secondary);
-  transition: all 0.3s ease;
-}
-
-.appmenu-category:hover {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-/* Triangle indicator for expand/collapse */
-
-p.sort-asc::before{ content: '▲'; }
-p.sort-desc::before{ content: '▼'; }
-
-
-
-.appmenu-category::before {
-  content: "▶";
-  display: inline-block;
-  margin-left: px;
-  
-  font-size: 15px;
-}
-
-body:not(.win_cla).appmenu-category::before {
-  transition: transform 0.25s ease;
-}
-
-
-#sysmenu details[open] > .appmenu-category::before {
-  transform: rotate(90deg);
-}
-
-/* App containers */
-#appmenu-sys,
-#appmenu-user {
-  max-height: 25vh;
-  overflow-y: auto;
-  overflow-x: hidden;
-}
-
-
-#appmenu-list-sys[open]:has(~ #appmenu-list-user:not([open])) #appmenu-sys {
-  max-height: 50vh;
-}
-
-/* Scenario 2: ONLY User apps are open (System list is closed) */
-#appmenu-list-user[open]:has(~ #appmenu-list-sys:not([open])), /* if system is below */
-#appmenu-list-sys:not([open]) ~ #appmenu-list-user[open] #appmenu-user {
-  max-height: 50vh;
-}
-
-#appmenu-sys button,
-#appmenu-user button {
-  cursor: pointer;
-  border-bottom: 1px solid #aaaaaa55 !important;
-  width: 100%;
-  text-align: left;
-  transition: all 0.3s ease;
-  padding: 8px 15px !important;
-}
-
-
-
-
-
-/* =============================================
-   NOTIFICATION TOAST
-   ============================================= */
-.notification {
-  position: fixed;
-  right: 15px;
-  bottom: calc(var(--panel-height) + 10px);
-  top: auto;
-  min-width: 10%;
-  max-width: 30vw;
-  min-height: 60px;
-  background: var(--info-bg, rgba(30, 30, 30, 0.5));
-
-color: var(--info-text, --color-text-secondary);
-  padding: 10px 15px;
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(var(--blur, 10px));
-
-  z-index: 999999;
-  box-shadow: var(--shadow-notification);
-  font-size: 15px;
-  transform: translateX(100%);
-  opacity: 0;
-  animation: slideIn 0.4s ease-out forwards,
-             slideOut 0.5s 2.0s ease-in forwards;
-}
-
-
-
-
-.popover{
-  position: fixed;
-            margin: 0;
-            padding: 4px 8px; 
-            font-size: 10px; 
-            border: none;
-            background: var(--info-bg, rgba(30, 30, 30, 0.5));
-            transform-origin: top left;
-  animation: grow 0.2s ease-out forwards;
-
-color: var(--info-text, --color-text-secondary);
-  padding: 10px 15px;
-  border-radius: var(--radius-md);
-  backdrop-filter: blur(var(--blur, 10px));
-            pointer-events: none;
-            z-index: 999999;
-}
-
-
-@keyframes slideIn {
-  to { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes slideOut {
-  to { opacity: 0; transform: translateX(100%); }
-} 
-
-
-/* =============================================
-   WINBOX — ADVANCED ANIMATIONS (SPRING ENGINE)
-   ============================================= */
-
-
-/* --- Ключові кадри анімацій --- */
-
-/* 1. Поява: Ефект вистрибування з легкою пружиною */
-@keyframes winOpen {
-    0% {
-        opacity: 0;
-        transform: scale(0.88) translateY(30px);
-    }
-    100% {
+@keyframes shrink {
+    from {
         opacity: 1;
-        transform: scale(1) translateY(0);
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.8);
     }
 }
 
-.output-container *{
-  overflow-x:hidden !important;
+.winbox.wb-closing {
+    animation: shrink 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); 
+    pointer-events: none;
+}
+
+body.peek .winbox{
+  transition: opacity 1s ease;
+  opacity:0.1 !important;
+  touch-action: none;
+  pointer-events: none;
+}
+
+
+.winbox.max {  height: calc(100% - var(--panel-height)) !important;}
+body.panel-at-top .winbox.max {    top: var(--panel-height) !important;}.winbox.min {  bottom: 0 !important;   top: calc(100% - var(--panel-height)) !important;z-index: 9999;height: var(--panel-height) !important;min-height: var(--panel-height) !important;}.winbox.min.first-min {  left: 40px !important;} body.panel-at-top .winbox.min {  top: 0 !important;  bottom: auto;}#desktop-fore {  position: absolute;  top: 0;  left: 0;  width: 100vw;  height: 100vh;  z-index: 0;       pointer-events: none;     display: flex;  flex-direction: column;  justify-content: center;  align-items: center;    color: transparent;  text-shadow: 0 0 6px rgba(255, 255, 255, 0.5);}#desktop-fore * {  pointer-events: none !important;  user-select: none !important; }body.GPU_DRAW *{  will-change: contents;  will-change: scroll-position;}body.GPU_DRAW ul{  will-change: transform;will-change: opacity;}body.GPU_DRAW .winbox{will-change: left, top;}.glass-theme:not(body), .win_aero:not(body) {    text-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);     border: solid 1px #aaaaaa55;    backdrop-filter: blur(10px);    -webkit-backdrop-filter: blur(10px);     }.win_cla, .win_cla *{box-shadow: none;animation: none !important;transform: none !important;transition: none !important;opacity: 1 !important;}.win_cla svg{  filter: none;}.winbox.is-cont-hidden{      background: transparent !important;  }.winbox.win_cla.is-cont-hidden{    border: 5px solid rgba(0, 0, 0, 0.5) !important; }.winbox.is-cont-hidden .wb-header *, .winbox.is-cont-hidden .wb-body {      pointer-events: none;   visibility: hidden !important;  opacity: 0;  transition: none; }.winbox{animation: grow 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);    opacity: 0;    transform: scale(0.9) translateY(10px);    animation: winOpen 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;    will-change: transform, opacity; border-radius: var(--radius-md); }.winbox:not(.play):not(.is-cont-hidden) {  background: var(--color-win-ina) !important;}.winbox.focus:not(.is-cont-hidden){  background: var(--color-win-act) !important;}.winbox .wb-body {        margin: 5px;     color: #000;     background: var(--bg-body);    border-radius: var(--radius-md);    transition: all, 0.5s;}.winbox .wb-title {    color: #fff;     text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); }.winbox .wb-header,.winbox .wb-header *{  cursor: default !important;}.winbox:not(.win_cla) .wb-control > *{  transform: scale(0.95);  border-radius: var(--radius-md);  background-size: 0px;   background-repeat: no-repeat;  background-position: center;  background-blend-mode: overlay;  transition: background-size 0.1s ease-in-out; }.winbox.win_cla .wb-control > * {    background-blend-mode: difference;}.winbox:not(.win_cla) .wb-control > *:hover,.winbox:not(.win_cla) .wb-control > *.hover {    background-size: 70%; }.winbox .wb-max {  background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2Utd2lkdGg9IjIuNSIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBkPSJNOCAzSDVhMiAyIDAgMCAwLTIgMnYzbTE4IDBWNWEyIDIgMCAwIDAtMi0yaC0zbTAgMThoM2EyIDIgMCAwIDAgMi0ydi0zTTMgMTZ2M2EyIDIgMCAwIDAgMiAyaDMiLz48L3N2Zz4=);}.winbox.glass-theme:not(.focus) .wb-header *{  color: lightgray;}.winbox:not(.win_cla) .wb-max {  background-color: rgba(35, 140, 35, 60%);}.winbox.max .wb-max {  background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIGZpbGw9IiNmZmYiIHZpZXdCb3g9IjAgMCA5NiA5NiI+PHBhdGggZD0iTTIwIDcxLjMxMUMxNS4zNCA2OS42NyAxMiA2NS4yMyAxMiA2MFYyMGMwLTYuNjMgNS4zNy0xMiAxMi0xMmg0MGM1LjIzIDAgOS42NyAzLjM0IDExLjMxMSA4SDI0Yy0yLjIxIDAtNCAxLjc5LTQgNHY1MS4zMTF6Ii8+PHBhdGggZD0iTTkyIDc2VjM2YzAtNi42My01LjM3LTEyLTEyLTEySDQwYy02LjYzIDAtMTIgNS4zNy0xMiAxMnY0MGMwIDYuNjMgNS4zNyAxMiAxMiAxMmg0MGM2LjYzIDAgMTItNS4zNyAxMi0xMnptLTUyIDRjLTIuMjEgMC00LTEuNzktNC00VjM2YzAtMi4yMSAxLjc5LTQgNC00aDQwYzIuMjEgMCA0IDEuNzkgNCA0djQwYzAgMi4yMS0xLjc5IDQtNCA0SDQweiIvPjwvc3ZnPg==);}.winbox:not(.win_cla) .wb-min {  background-color: rgb(255, 215, 0, 60%);}.winbox:not(.win_cla)
+ .wb-close {  background-color: rgba(220, 20, 60, 60%);}.winbox.min .wb-control  {    display: none;}.winbox.max .wb-close  {    border-top-right-radius: 0;}.winbox.max {        border-radius: 0;    border: none;}.winbox.max .wb-body {    border-radius: 0;}
+.winbox .wb-header .wb-control .wb-menu,
+.winbox.allow-full .wb-header .wb-control .wb-full {
+  background-color: rgba(220, 220, 220, 60%);
+}
+.winbox:not(.allow-full) .wb-header .wb-control .wb-full{
+  display: none;
+}
+.winbox .wb-header .wb-control .wb-menu{
+   background-image: url("data:image/svg+xml;base64,PHN2ZwogICAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgdmlld0JveD0iMCAwIDE2IDE2IgogICAgZmlsbD0iI2ZmZiI+CiAgICA8cGF0aCBkPSJNOCAwaDdhMSAxIDAgMCAxIDAgMkgxYTEgMSAwIDAgMSAwLTJoN3oiLz4KICAgIDxwYXRoIGQ9Ik04IDdoN2ExIDEgMCAwIDEgMCAySDFhMSAxIDAgMCAxIDAtMmg3eiIvPgogICAgPHBhdGggZD0iTTggMTRoN2ExIDEgMCAwIDEgMCAySDFhMSAxIDAgMCAxIDAtMmg3eiIvPgo8L3N2Zz4=")
+}
+
+footer {  position: fixed;  display: flex;  justify-content: space-between;  align-items: center;  bottom: 0;  line-height: 1;  margin: 0;  padding: 5px 0 5px 5px;  width: 100vw;  border-radius: none;  color: var(--color-text-tretiary);  font-size: 20px;  background: var(--bg-panel) !important;  height: calc(var(--panel-height) - 10px);}
+footer > img {  width: 25px;  height: 25px;  object-fit: contain;  background: #000;  border-radius: var(--radius-full);}
+.right {  margin-right: 0px;  display: inline-flex;  align-items: center;   gap: 10px;   height: 100%; }
+.right span {  height: 100%;  display: inline-flex;      align-items: center;       justify-content: center; }
+.right svg{    width: 20px;    height: 20px;}
+.showDesktop {
+  
+    width: 10px;
+    height: calc(100% + 10px) !important; 
+    margin-top: -5px;   /* Pulls it up to cover footer's top padding */
+    margin-bottom: -5px;/* Pulls it down to cover footer's bottom padding */
+    margin-right: 0;    /* Aligns it flush against the right edge */
+
+    background: rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    transition: background 0.2s ease, width 0.2s ease;
+}
+
+.showDesktop:hover:not(.disabled), body.peek .showDesktop:not(.disabled) {
+    background: var(--accent-color); /* Lights up on hover */
+    width: 15px; /* Slight expansion effect to invite clicks/hover */
+}
+
+.showDesktop.disabled{
+  background: transparent !important;
+  pointer-events: none;
+  touch-action: none;
+}
+
+
+
+#sysmenu {  position: fixed;  z-index: 10000;  font-size: 20px;  background: var(--bg-panel) !important; padding:5px;  box-shadow: none;  display: none;  bottom: var(--panel-height);  top: auto;  border-radius: 0px;  border-top-right-radius: var(--radius-md);  max-width: 50vw;  flex-direction: column;}body.panel-at-top #sysmenu {  top: var(--panel-height);	  border-radius: 0px;  border-bottom-right-radius: var(--radius-md);  bottom: auto;  }#sysmenu * {  color: var(--color-text-tretiary);}body:not(.win_cla) #sysmenu *{    background: none !important;  border: none !important;   text-shadow: 1px 1px 1px #000 !important;}#sysmenu details {  padding-left: 5px;  padding-right: 5px;}#sysmenu .sysmenu-actions *{  font-size: 15px;  cursor: pointer;}#sysmenu .sysmenu-actions svg {  filter: drop-shadow(1px 1px 5px rgb(0 0 0));}.appmenu-category {  user-select: none;  display: flex;  align-items: center;  color: var(--color-text-secondary);  transition: all 0.3s ease;}.appmenu-category:hover {  background: rgba(255, 255, 255, 0.05);}p.sort-asc::before{ content: '▲'; }p.sort-desc::before{ content: '▼'; }.appmenu-category::before {  content: "▶";  display: inline-block;  margin-left: px;  font-size: 15px;}body:not(.win_cla).appmenu-category::before {  transition: transform 0.25s ease;}#sysmenu details[open] > .appmenu-category::before {  transform: rotate(90deg);}#appmenu-sys,#appmenu-user {  max-height: 25vh;  overflow-y: auto;  overflow-x: hidden;}#appmenu-list-sys[open]:has(~ #appmenu-list-user:not([open])) #appmenu-sys {  max-height: 50vh;}#appmenu-list-user[open]:has(~ #appmenu-list-sys:not([open])), #appmenu-list-sys:not([open]) ~ #appmenu-list-user[open] #appmenu-user {  max-height: 50vh;}#appmenu-sys button,#appmenu-user button {  cursor: pointer;  border-bottom: 1px solid #aaaaaa55 !important;  width: 100%;  text-align: left;  transition: all 0.3s ease;  padding: 8px 15px !important;}.right{  text-align: right;}.left{  text-align: left;}
+
+
+.notification-badge, .shortcut-badge {
+    position: absolute;
+
+
+    box-sizing: border-box;
+    border-radius: 10px;
+
+
+
+
+    font-size: 15px;
+    font-weight: bold;
+    line-height: 20px;
+    text-align: center;
+
+    pointer-events: none;
+}
+
+.notification-badge{
+    color: white;
+    background: #ff3b30;
+    top: 20px;
+    left:55px;
+    z-index: 10;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+}
+
+
+#flash-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647; /* max safe z-index, guarantees top layer */
+  pointer-events: none;
+  box-shadow: inset 0 0 0 0px rgba(255,255,255,0);
+  opacity: 0;
+}
+
+#flash-overlay.shot {
+  animation: shotFlash 450ms ease-out;
+}
+
+@keyframes shotFlash {
+  0%   { box-shadow: inset 0 0 0 0px rgba(255,255,255,1); opacity: 1; }
+  50%  { box-shadow: inset 0 0 0 25px rgba(255,255,255,1); opacity: 1; }
+  100% { box-shadow: inset 0 0 0 0px rgba(255,255,255,0); opacity: 0; }
+}
+
+#notification-container {
+    position: fixed;
+    right: 15px;
+    bottom: calc(var(--panel-height) + 10px);
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+
+    z-index: 999999;
+    pointer-events: none;
+}
+
+.notification {
+    position: relative;
+
+    min-width: 10%;
+    max-width: 30vw;
+    min-height: 60px;
+
+    background: var(--info-bg, rgba(30, 30, 30, 0.5));
+    color: var(--info-text, var(--color-text-secondary));
+
+    padding: 10px 5px;
+    box-sizing: border-box;
+
+    border-radius: var(--radius-md);
+    backdrop-filter: blur(var(--blur, 10px));
+
+    box-shadow: var(--shadow-notification);
+    font-size: 15px;
+
+    pointer-events: auto;
+
+    transform: translateX(100%);
+    opacity: 0;
+
+    animation:
+        slideIn 0.4s ease-out forwards,
+        slideOut 0.5s 2s ease-in forwards;
+}
+
+body.panel-at-top #notification-container {
+    top: calc(var(--panel-height) + 10px);
+    bottom: auto;
+}
+
+#sysmenu{
+    scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+
+.term{
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+
+#sysmenu::-webkit-scrollbar, .term::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+
+#sysmenu::-webkit-scrollbar-track, .term::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#sysmenu::-webkit-scrollbar-thumb, .term::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+}
+
+#sysmenu::-webkit-scrollbar-thumb:hover, .term::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 1);
+}
+
+#sysmenu::-webkit-scrollbar-corner, .term::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+.popover{  position: fixed;            margin: 0;            padding: 4px 8px;             font-size: 10px;             border: none;            background: var(--info-bg, rgba(30, 30, 30, 0.5));            transform-origin: top left;  animation: grow 0.2s ease-out forwards;color: var(--info-text, --color-text-secondary);  padding: 10px 15px;  border-radius: var(--radius-md);  backdrop-filter: blur(var(--blur, 10px));            pointer-events: none;            z-index: 999999;}@keyframes slideIn {  to { opacity: 1; transform: translateX(0); }}@keyframes slideOut {  to { opacity: 0; transform: translateX(100%); }} @keyframes winOpen {    0% {        opacity: 0;        transform: scale(0.88) translateY(30px);    }    100% {        opacity: 1;        transform: scale(1) translateY(0);    }}.output-container *{  overflow-x:hidden !important;}
+
+.appIcon .icon-wrap {
+    position: relative;
+    display: inline-block;
+    height: 32px;
+    line-height: 0;
+}
+
+.appIcon .shortcut-arrow {
+    position: absolute;
+    left: -2px;
+    bottom: -2px;
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border-radius: 3px;
+    box-shadow: 0 0 2px rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.appIcon .shortcut-arrow svg {
+    width: 10px;
+    height: 10px;
+    display: block;
 }
