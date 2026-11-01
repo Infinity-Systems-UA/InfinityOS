@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+
+  <!-- Background -->
+  <rect
+    x="6"
+    y="4"
+    width="52"
+    height="56"
+    rx="8"
+    fill="#E8F5E9"
+    stroke="#C8CED4"
+    stroke-width="2"/>
+
+  <!-- Spreadsheet -->
+  <g
+    fill="none"
+    stroke="#65A168"
+    stroke-width="1.2"
+    stroke-linecap="round"
+    opacity="0.8">
+
+    <!-- Row 1 -->
+    <rect x="12" y="12" width="12" height="8" rx="1.5"/>
+    <rect x="26" y="12" width="12" height="8" rx="1.5"/>
+    <rect x="40" y="12" width="12" height="8" rx="1.5"/>
+
+    <!-- Row 2 -->
+    <rect x="12" y="22" width="12" height="8" rx="1.5"/>
+    <rect x="26" y="22" width="12" height="8" rx="1.5"/>
+    <rect x="40" y="22" width="12" height="8" rx="1.5"/>
+
+    <!-- Row 3 -->
+    <rect x="12" y="32" width="12" height="8" rx="1.5"/>
+    <rect x="26" y="32" width="12" height="8" rx="1.5"/>
+    <rect x="40" y="32" width="12" height="8" rx="1.5"/>
+
+    <!-- Row 4 -->
+    <rect x="12" y="42" width="12" height="8" rx="1.5"/>
+    <rect x="26" y="42" width="12" height="8" rx="1.5"/>
+    <rect x="40" y="42" width="12" height="8" rx="1.5"/>
+
+  </g>
+
+  <!-- Text lines -->
+  <g
+    stroke="#4F8A52"
+    stroke-width="1.5"
+    stroke-linecap="round"
+    opacity="0.75">
+
+    <!-- Row 1 -->
+    <line x1="14" y1="16" x2="21" y2="16"/>
+    <line x1="28" y1="16" x2="35" y2="16"/>
+    <line x1="42" y1="16" x2="49" y2="16"/>
+
+    <!-- Row 2 -->
+    <line x1="14" y1="26" x2="21" y2="26"/>
+    <line x1="28" y1="26" x2="35" y2="26"/>
+    <line x1="42" y1="26" x2="49" y2="26"/>
+
+    <!-- Row 3 -->
+    <line x1="14" y1="36" x2="21" y2="36"/>
+    <line x1="28" y1="36" x2="35" y2="36"/>
+    <line x1="42" y1="36" x2="49" y2="36"/>
+
+    <!-- Row 4 -->
+    <line x1="14" y1="46" x2="21" y2="46"/>
+    <line x1="28" y1="46" x2="35" y2="46"/>
+    <line x1="42" y1="46" x2="49" y2="46"/>
+
+  </g>
+
+</svg>

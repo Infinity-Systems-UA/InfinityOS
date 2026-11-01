@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 64 64"
+   version="1.1"
+   id="svg6"
+   sodipodi:docname="clock.svg"
+   inkscape:version="1.4 (e7c3feb100, 2024-10-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:zoom="5.5384078"
+     inkscape:cx="40.986509"
+     inkscape:cy="54.799143"
+     inkscape:window-width="1920"
+     inkscape:window-height="1118"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg6" />
+  <defs
+     id="defs6" />
+  <!-- Circle -->
+  <circle
+     cx="32"
+     cy="32"
+     r="26"
+     fill="#ffffff"
+     stroke="#c7c7cc"
+     stroke-width="2"
+     id="circle1" />
+  <!-- Hands (both length 12) -->
+  <line
+     x1="45.482277"
+     y1="32.119408"
+     x2="32"
+     y2="32"
+     stroke="#aaaaaa"
+     stroke-width="2"
+     stroke-linecap="round"
+     id="line1"
+     inkscape:transform-center-x="-6.5346958"
+     inkscape:transform-center-y="-0.035920453" />
+  <line
+     x1="32"
+     y1="18.818903"
+     x2="32"
+     y2="32"
+     stroke="#aaaaaa"
+     stroke-width="2.09612"
+     stroke-linecap="round"
+     id="line2" />
+  <!-- Side lines (detached, black) -->
+  <!-- Top -->
+  <line
+     x1="32"
+     y1="10"
+     x2="32"
+     y2="16"
+     stroke="#000000"
+     stroke-width="2"
+     stroke-linecap="round"
+     id="line3" />
+  <!-- Bottom -->
+  <line
+     x1="32"
+     y1="48"
+     x2="32"
+     y2="54"
+     stroke="#000000"
+     stroke-width="2"
+     stroke-linecap="round"
+     id="line4" />
+  <!-- Left -->
+  <line
+     x1="10"
+     y1="32"
+     x2="16"
+     y2="32"
+     stroke="#000000"
+     stroke-width="2"
+     stroke-linecap="round"
+     id="line5" />
+  <!-- Right -->
+  <line
+     x1="48"
+     y1="32"
+     x2="54"
+     y2="32"
+     stroke="#000000"
+     stroke-width="2"
+     stroke-linecap="round"
+     id="line6" />
+</svg>

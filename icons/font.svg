@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect
+    x="6" y="4"
+    width="52" height="56"
+    rx="8"
+    fill="#ffffff"
+    stroke="#c7c7cc"
+    stroke-width="2"
+  />
+
+  <!-- Background / Base Font (Serif) -->
+  <text
+    x="12"
+    y="40"
+    font-size="28"
+    font-family="serif"
+    font-weight="bold"
+    fill="#3b5bdb"
+    opacity="0.85"
+  >Aa</text>
+
+  <!-- Foreground / Overlapping Font (Sans-Serif) -->
+  <text
+    x="24"
+    y="48"
+    font-size="24"
+    font-family="sans-serif"
+    font-weight="550"
+    fill="#ff6b00"
+    opacity="0.85"
+    style="mix-blend-mode: multiply;"
+  >Aa</text>
+</svg>

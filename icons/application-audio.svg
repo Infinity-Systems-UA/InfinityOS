@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 64 64"
+   version="1.1"
+   id="svg3"
+   sodipodi:docname="application-audio.svg"
+   inkscape:version="1.4 (e7c3feb100, 2024-10-09)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs3" />
+  <sodipodi:namedview
+     id="namedview3"
+     pagecolor="#505050"
+     bordercolor="#eeeeee"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#505050"
+     inkscape:zoom="9.8407186"
+     inkscape:cx="52.84167"
+     inkscape:cy="52.07953"
+     inkscape:window-width="1920"
+     inkscape:window-height="1118"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg3" />
+  <rect
+     x="6"
+     y="4"
+     width="52"
+     height="56"
+     rx="8"
+     fill="#fff9f0"
+     stroke="#c7c7cc"
+     stroke-width="2"
+     id="rect1" />
+  <g
+     stroke="#4a4a4a"
+     stroke-width="2"
+     stroke-linecap="round"
+     stroke-linejoin="round"
+     fill="none"
+     id="g3"
+     transform="translate(2.75,-3)">
+    <circle
+       cx="19"
+       cy="48"
+       r="6"
+       fill="#4a4a4a"
+       stroke="none"
+       id="circle1" />
+    <line
+       x1="24"
+       y1="48"
+       x2="24"
+       y2="20"
+       id="line1" />
+    <circle
+       cx="39.5"
+       cy="44"
+       r="6"
+       fill="#4a4a4a"
+       stroke="none"
+       id="circle2" />
+    <line
+       x1="44"
+       y1="44"
+       x2="44"
+       y2="16"
+       id="line2" />
+    <line
+       x1="24"
+       y1="20"
+       x2="44"
+       y2="16"
+       id="line3" />
+  </g>
+</svg>

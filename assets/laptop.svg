@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 800 450"
+   version="1.1"
+   id="svg3"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs3" />
+  <path
+     d="m 155,365 h 490 a 10,4.7561517 0 0 1 10,4.75615 v 2.37807 a 15,7.1342275 0 0 1 -15,7.13423 H 160 a 15,7.1342275 0 0 1 -15,-7.13423 v -2.37807 A 10,4.7561517 0 0 1 155,365 Z"
+     fill="#bdc3c7"
+     id="path1"
+     style="fill:#cccccc;fill-opacity:1;stroke-width:0.999997" />
+  <path
+     d="M360 365 h80 v3 a5 5 0 0 1 -5 5 h-70 a5 5 0 0 1 -5 -5 Z"
+     fill="#ecf0f1"
+     id="path2" />
+  <rect
+     x="207"
+     y="45"
+     width="386"
+     height="320"
+     rx="8"
+     ry="8"
+     fill="#111111"
+     id="rect2" />
+  <rect
+     x="212"
+     y="58.067001"
+     width="376"
+     height="301.93298"
+     rx="4"
+     ry="3.8959095"
+     fill="#5db2ff"
+     id="rect3"
+     style="stroke-width:1" />
+  <circle
+     cx="400"
+     cy="51.5"
+     r="1.5"
+     fill="#2c3e50"
+     id="circle3" />
+</svg>

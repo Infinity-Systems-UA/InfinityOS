@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   viewBox="0 0 64 64"
+   version="1.1"
+   id="svg5"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs5" />
+  <!-- Paper background (square) -->
+  <rect
+     x="8"
+     y="8"
+     width="48"
+     height="48"
+     rx="6"
+     fill="#ffffff"
+     stroke="#c7c7cc"
+     stroke-width="2"
+     id="rect1" />
+  <!-- Plus -->
+  <rect
+     x="12"
+     y="11.594546"
+     width="17.999998"
+     height="18.405455"
+     rx="2.9999998"
+     fill="#000000"
+     stroke="#c7c7cc"
+     stroke-width="1"
+     id="rect2"
+     style="fill:#666666;fill-opacity:1" />
+  <path
+     d="M 20.999999,13.438343 V 27.133679 M 14.152331,20.286011 H 27.847667"
+     stroke="#c7c7cc"
+     stroke-width="1.50001"
+     stroke-linecap="round"
+     id="path2" />
+  <!-- Minus -->
+  <rect
+     x="34"
+     y="12"
+     width="18"
+     height="18"
+     rx="3"
+     fill="#000000"
+     stroke="#c7c7cc"
+     stroke-width="1"
+     id="rect3"
+     style="fill:#666666;fill-opacity:1" />
+  <path
+     d="m 39.35772,20.286011 h 7.28456"
+     stroke="#c7c7cc"
+     stroke-width="1.5"
+     stroke-linecap="round"
+     id="path3" />
+  <!-- Multiply -->
+  <rect
+     x="12"
+     y="34"
+     width="18"
+     height="18"
+     rx="3"
+     fill="#000000"
+     stroke="#c7c7cc"
+     stroke-width="1"
+     id="rect4"
+     style="fill:#666666;fill-opacity:1" />
+  <path
+     d="m 15.480943,37.480942 11.038114,11.038114 m 0,-11.038114 -11.038114,11.038114"
+     stroke="#c7c7cc"
+     stroke-width="1.49999"
+     stroke-linecap="round"
+     id="path4" />
+  <!-- Equals (bigger) -->
+  <rect
+     x="34"
+     y="34"
+     width="18"
+     height="18"
+     rx="3"
+     fill="#000000"
+     stroke="#c7c7cc"
+     stroke-width="1"
+     id="rect5"
+     style="fill:#666666;fill-opacity:1" />
+  <path
+     d="m 40,41 h 6 m -6,4 h 6"
+     stroke="#c7c7cc"
+     stroke-width="1.5"
+     stroke-linecap="round"
+     id="path5" />
+</svg>
