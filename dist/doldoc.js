@@ -34,13 +34,13 @@
  * element flags (+CX +RX +UL +IV +BK +BD ...), named args exposed as data-dd-*.
  * Unknown commands are ignored.
  */
-function dolDocToHtml(input, options) {
+function dolDocToHtmlCore(input, options) {
   const opt = Object.assign({
     cols: 80,
     allowHtml: false,
     style: true,
     wrapper: true,
-    className: 'dd',
+    className: 'no-font',
     resolveLink: null,
     resolveSprite: null,
     resolveList: null,
@@ -370,7 +370,7 @@ function dolDocToHtml(input, options) {
   if (opt.wrapper) {
     const c = '.' + opt.className;
     const css =
-      c + '{white-space:pre-wrap;overflow-wrap:anywhere;tab-size:8;font:16px/1.15 "Courier New",Consolas,monospace;background:#fff;color:#000;padding:8px}' +
+      c + '{white-space:pre-wrap;overflow-wrap:anywhere;tab-size:8;font-size:16px; font-family: monospace !important;background:#fff;color:#000;padding:8px;}' +
       c + ' a{color:#AA0000;text-decoration:none}' + c + ' a:hover{text-decoration:underline}' +
       c + ' .dd-tr{color:#AA00AA;cursor:pointer}' +
       c + ' .dd-bt,' + c + ' .dd-cy,' + c + ' select,' + c + ' input.dd-da{font:inherit}' +
@@ -454,5 +454,131 @@ function dolDocToHtml(input, options) {
 
   return result;
 }
+
+/**
+ * dolDocToHtml(input, options?)
+ *
+ * Compatibility wrapper for TempleOS-style DolDoc commands.
+ *
+ * Supports:
+ *   $$WW,1
+ *   $$FG,BLUE
+ *   $$TX,"Hello!"
+ *
+ * Also supports the original parser syntax:
+ *   $WW,1$
+ *   $FG,BLUE$
+ *   $TX,"Hello!"$
+ *
+ * All original options and interactive functionality are preserved.
+ */
+window.dolDocToHtml=(input, options = {})=> {
+
+    // CP437 decoding for raw TempleOS bytes
+    const CP437 =
+        'ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬╧╨╤╥╙╘╒╓╫╪┘┌█▄▌▐▀αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■\u00a0';
+
+    let source;
+
+    if (typeof input === 'string') {
+        source = input;
+
+    } else {
+        const bytes = input instanceof ArrayBuffer
+            ? new Uint8Array(input)
+            : input;
+
+        if (!bytes || typeof bytes.length !== 'number') {
+            throw new TypeError(
+                'Expected string, Uint8Array or ArrayBuffer'
+            );
+        }
+
+        source = '';
+
+        for (let i = 0; i < bytes.length; i++) {
+            const b = bytes[i];
+
+            source += b < 128
+                ? String.fromCharCode(b)
+                : (CP437[b - 128] || '\uFFFD');
+        }
+    }
+
+    source = source
+        .replace(/\r\n?/g, '\n')
+        .replace(/\0+/g, '');
+
+    // Convert line-oriented $$ commands into the original
+    // parser's $COMMAND$ syntax.
+    const lines = source.split('\n');
+
+    const converted = lines.map(line => {
+
+        // Only interpret $$ at the beginning of a line.
+        const match = /^(\s*)\$\$(.*)$/.exec(line);
+
+        if (!match) {
+            return line;
+        }
+
+        const prefix = match[1];
+        let command = match[2];
+
+        // Empty command line
+        if (!command.trim()) {
+            return line;
+        }
+
+        // Support commands that already have a closing $$.
+        // Remove the closing delimiter; the legacy parser
+        // expects a single-dollar terminator.
+        let quoted = false;
+        let escaped = false;
+        let closing = -1;
+
+        for (let i = 0; i < command.length; i++) {
+            const c = command[i];
+
+            if (quoted) {
+                if (escaped) {
+                    escaped = false;
+                } else if (c === '\\') {
+                    escaped = true;
+                } else if (c === '"') {
+                    quoted = false;
+                }
+            } else {
+                if (c === '"') {
+                    quoted = true;
+                } else if (
+                    c === '$' &&
+                    command[i + 1] === '$'
+                ) {
+                    closing = i;
+                    break;
+                }
+            }
+        }
+
+        if (closing >= 0) {
+            command = command.slice(0, closing);
+        }
+
+        // Convert $$COMMAND into $COMMAND$
+        return prefix + '$' + command + '$';
+
+    }).join('\n');
+
+    // Pass the decoded and converted source to the original
+    // parser. All original options remain available.
+    return dolDocToHtmlCore(converted, options);
+}
+
+// Preserve CommonJS compatibility
+if (typeof module !== 'undefined') {
+    module.exports = dolDocToHtml;
+}
+
 
 if (typeof module !== 'undefined') module.exports = dolDocToHtml;

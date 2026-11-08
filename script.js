@@ -20,6 +20,7 @@ const notify = document.getElementById('notify');
   let HW_API = false;
   let clipboard = null;
   let INTERCEPT_ERRS = true;
+  let locatorState = JSON.parse(localStorage.getItem('locatorState')) || false;
 const bootConfig = JSON.parse(localStorage.getItem("boot")) || {};
 let enableTouchpadGestures = JSON.parse(localStorage.getItem("enableTouchpadGestures") )|| false;
 let cleanOnBoot = bootConfig.clean ?? true; // Чистить пусті ключі диску конфігурацій при запуску.
@@ -465,13 +466,7 @@ function setDrawMode(e="cpu"){document.getElementById("body").classList.toggle("
     window.abortControllers = []
     window.systemObservers = [];
 
-    let filesSettings = JSON.parse(localStorage.getItem("config/files")) || { "filesCols": [], "showHidden": true , "colorFolders":false, "showLS":true, "showSS": false, "showCK": false};
-    let filesColorFolders = filesSettings.colorFolders;
-    let filesCols = filesSettings.filesCols;
-    let filesShowHidden = filesSettings.showHidden;
-    let filesShowLS = filesSettings.showLS;
-    let filesShowSS = filesSettings.showSS;
-    let filesShowCK = filesSettings.showCK;
+    let filesSettings = JSON.parse(localStorage.getItem("config/files")) || { "filesSettings.filesCols": ['name'], "showHidden": true , "colorFolders":false, "showLS":true, "showSS": false, "showCK": false, "pinnedFldrs": []};
 
     let currentDisk = null;
 
@@ -482,11 +477,11 @@ function movePanelWidg(w1,w2){itemToMove=document.getElementById(w1);referenceIt
 
 
 
-    function applySystemConfig(winID) {
+    function applySystemConfig(winID, shouldInjectScript=true) {
       if (!winID) return;
       
       // Перевірка: якщо це системне вікно файлового менеджера, скрипти не інжектуємо
-      const shouldInjectScript = !winID.startsWith("fileWinBox-frame");
+      
 
       const windowContainer = document.getElementById(winID);
       
@@ -623,47 +618,64 @@ ${cssVariables}
           
           // Скрипт, який виконуватиметься в контексті самого iframe
           scriptTag.textContent = `
-    fetch = (...a) => parent.fetch(...a);
-            document.querySelectorAll('[title]').forEach(e => {
-        parent.updateSystemPopover(e, e.title, true, true);
-            parent.console.log("[Popover REG] PICK EL w/ TITLE.")
-        });
+    const excludedTags = new Set([
+    "meta",
+    "script",
+    "style",
+    "link",
+    "head",
+    "title",
+    "svg",
+    "path"
+]);
 
-    document.querySelectorAll("*").forEach(el => {
-        let p = el;
-        while (p) {
-            const tag = p.tagName?.toLowerCase() || "";
-            const cls = p.className || "";
-
-    if (
-        p.hasAttribute("has-trailing-icon") ||
-        p.hasAttribute("trailing-icon")
-    ) {
-        return;
-    }
-
-            if (
-                tag === "i" ||
-                tag.includes("icon") ||
-                /\b(ic|icon|fa|fas|far|fab|fal|fat|fad|codicon)\b/.test(cls) ||
-                /(icon-|fa-|codicon|material-icons|material-symbols)/.test(cls)
-            ) {
-                return; // Skip this element and everything inside it
-            }
-
-            p = p.parentElement;
+document.querySelectorAll("*").forEach(el => {
+    let p = el;
+    let skip = false;
+    
+    while (p) {
+        const tag = p.tagName?.toLowerCase() || "";
+        const cls = typeof p.className === "string" ? p.className : "";
+        
+        if (excludedTags.has(tag)) {
+            skip = true;
+            break;
         }
-
-        if (document.body.contains(el)) el.classList.add("use-app-font");
-    });
+        
+        if (
+            p.hasAttribute("has-trailing-icon") ||
+            p.hasAttribute("trailing-icon")
+        ) {
+            skip = true;
+            break;
+        }
+        
+        if (
+            tag === "i" ||
+            tag.includes("icon") ||
+            /\b(ic|icon|fa|fas|far|fab|fal|fat|fad|codicon)\b/.test(cls) ||
+            /(icon-|fa-|codicon|material-icons|material-symbols)/.test(cls)
+        ) {
+            skip = true;
+            break;
+        }
+        
+        p = p.parentElement;
+    }
+    
+    if (!skip) {
+        el.classList.add("use-app-font");
+    }
+});
           `;
           iframeDoc.head.appendChild(scriptTag);
         }
       };
 
       // Внутрішня функція безпосереднього нанесення контенту стилей та скриптів в DOM iframe
-      const applyToIframe = (iframeDoc) => {
-        iframeDoc.body.classList = document.body.classList;
+      const applyToIframe = (iframeDoc, frc=true) => {
+        if (frc) iframeDoc.body.classList = document.body.classList;
+        if (!frc) iframeDoc.body.classList.add("use-app-font")
         
         let styleTag = iframeDoc.getElementById("infinity-os-injector") || iframeDoc.getElementById("infinity-os-font-injector");
         if (!styleTag) {
@@ -709,6 +721,7 @@ ${cssVariables}
               }
             `;
               console.log(`Application is using system-wide font: "${fontName}"`);
+              
             } catch (e) {
               console.warn(`Failed to load font "${fontName}":`, e);
             }
@@ -722,7 +735,7 @@ ${cssVariables}
         try {
           const iframeDoc = iframeElement.contentDocument || iframeElement.contentWindow.document;
           if (iframeDoc && iframeDoc.body) {
-            applyToIframe(iframeDoc);
+            applyToIframe(iframeDoc, shouldInjectScript);
           }
         } catch (e) {
           console.error("Помилка інжекту шрифтів:", e);
@@ -737,7 +750,7 @@ ${cssVariables}
         try {
           const iframeDoc = iframeElement.contentDocument || iframeElement.contentWindow.document;
           if (iframeDoc) {
-            applyToIframe(iframeDoc);
+            applyToIframe(iframeDoc, shouldInjectScript);
           }
         } catch (e) {
           console.error("Помилка інжекту по load:", e.message);
@@ -940,7 +953,7 @@ if (detectMobile()) {
         memory: navigator.deviceMemory ? navigator.deviceMemory + " GB" : '',
         os: {
           name: "Infinity OS",
-          version: "01112026" 
+          version: "08112026" 
         },
         deviceIcon: deviceIcon
       };
@@ -1291,8 +1304,8 @@ devProps.gpu = gpu
         ms_theme: "icons/theme.svg",
         textHtml: "icons/text-html.svg",
         textJavascript: "icons/text-x-javascript.svg",
+        tableFile: "icons/text-csv.svg",
         textCss: "icons/text-css.svg",
-        textCsv: "icons/text-csv.svg",
         json: 'icons/json.svg',
         font: "icons/font.svg",
         empty: "icons/application-blank.svg",
@@ -1397,18 +1410,10 @@ devProps.gpu = gpu
     let devProps;
     let maxLS, maxSS, maxCK, maxCCH;
 
-    async function safeShutdown({ restart = false } = {}) {
+    async function safeShutdown(restart, halt) {
         console.log("Infinity OS: safe shutdown started");
         getAbortCtrls().forEach(abortCtrl => abortCtrl.abort('System power off'))
 
-        const winboxes = document.querySelectorAll(".winbox");
-        winboxes.forEach(w => {
-            try {
-                if (w.winbox && typeof w.winbox.close === "function") {
-                    w.winbox.close(1);
-                }
-            } catch(e) { console.warn("WinBox close err:", e); }
-        });
 
         try {
             
@@ -1428,8 +1433,18 @@ devProps.gpu = gpu
         }
 
         await new Promise(resolve => setTimeout(resolve, 500));
+if (halt) return console.warn('Stopping... Halt was used...');
+        const winboxes = document.querySelectorAll(".winbox");
+        winboxes.forEach(w => {
+            try {
+                if (w.winbox && typeof w.winbox.close === "function") {
+                    w.winbox.close(1);
+                }
+            } catch(e) { console.warn("WinBox close err:", e); }
+        });
 
-        if (restart) {
+
+        if (restart == true || restart.restart == true) {
             console.log("Restarting system...");
             location.reload();
         } else {
@@ -2101,10 +2116,12 @@ function setPanelConfig(config) {
         'xml':  { mime: 'text/xml', icon: icns.textHtml },
         'js':   { mime: 'text/javascript', icon: icns.textJavascript },
         'md':   { mime: 'text/markdown', icon: icns.textRich },
-        'csv':  { mime: 'text/csv', icon: icns.textCsv },
+        'csv':  { mime: 'text/csv', icon: icns.tableFile },
+        'tsv':  { mime: 'text/tab-separated-values', icon: icns.tableFile },
+        'tab':  { mime: 'text/tab-separated-values', icon: icns.tableFile },
+        'fods':  { mime: 'application/vnd.oasis.opendocument.spreadsheet', icon: icns.tableFile },
         'theme':{ mime: 'application/x-theme', icon: icns.ms_theme },
         'svg':  { mime: 'image/svg+xml', icon: icns.imageGeneric }, // Has resolution avaliable as Group 2 types.
-        'docx': { mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', icon: icns.textRich },
         'xslt': { mime: 'application/xslt+xml', icon: icns.textHtml},
         'colors': {mime: 'application/x-kde-palette', icon: icns.ms_theme},
         'vcf': {mime: 'text/vcard', icon: icns.userFile},
@@ -2112,6 +2129,7 @@ function setPanelConfig(config) {
         'gml': {mime:"text/vnd.gml", icon: icns.graphFile},
         'ppd': {mime:"application/vnd.cups-ppd", icon: icns.printerFile},
         'dd': {mime:"text/x-doldoc", icon: icns.textRich},
+        'fodt': {mime:"application/vnd.oasis.opendocument.text-flat-xml", icon: icns.textRich},
 
     // Group 2: viewable, but not editable. Resolution is available in 'Get Info'
         'jpg':  { mime: 'image/jpeg', icon: icns.imageGeneric },
@@ -2204,12 +2222,9 @@ function setPanelConfig(config) {
     function getDesktopIcons(){return desktopIcons;}
     function getWorker(){return window.Worker;}
     function getWASM(){return window.wasm;}
+    function getLocState(){return locatorState;}
 
-function setTrayIcon(id, show, state){
-    const e = document.getElementById(id);
-    if (!e) return console.error('Tray icon not found: '+id);
 
-}
   function chKbrdLayout(layout) {
       const runSpan = document.querySelector("#deskM li:nth-child(3) span");
       const scrSpan = document.querySelector("#deskM li:nth-child(4) span");
@@ -2243,14 +2258,6 @@ function setTrayIcon(id, show, state){
 
 
 
-    function overrideInFrame(frame, funcName, newFunc) {
-        try {
-            frame.contentWindow[funcName] = newFunc;
-            console.log(`Функцію "${funcName}" перевизначено у фреймі:`, frame.src);
-        } catch(e) {
-            console.warn(`Не вдалося перевизначити "${funcName}" у фреймі:`, e);
-        }
-    }
 
     function regUrl(url, path){
   path = path.split("?")[0];
@@ -2410,7 +2417,7 @@ function setTrayIcon(id, show, state){
 
       <!-- Action Buttons (Standard block alignment instead of absolute overlapping) -->
       <div >
-        <button id="save1" class='ok' style="padding: 4px 12px;" disabled>${_('ok')}</button>
+        <button id="save1" class='ok' style="padding: 4px 12px;">${_('ok')}</button>
         <button id="cancel1" style="padding: 4px 12px;">${_('cancel')}</button>
       </div>
 
@@ -2421,24 +2428,35 @@ function setTrayIcon(id, show, state){
     $ = (e) => document.querySelector(e);
 
 
-    $('select').onchange = async () =>{
-      const r = $('select').value;
+    $('#typeSel').onchange = async () =>{
+      const r = $('#typeSel').value;
       if (r == 'app') {
         $('#setup-app').style.display='flex';
       }
       else {
         $('#setup-app').style.display='none';
-    $('#save1').disabled = true;
+    // $('#save1').disabled = true;
             const [fileHandle] = await window.showOpenFilePicker();
         
         // 2. Get the actual File object from the handle
         fileIns = await fileHandle.getFile();
-        if (fileIns) {$('#save1').disabled = false;
+        if (fileIns) {//$('#save1').disabled = false;
       $('#name').value = fileIns.name.split('/').pop();
+      $('#typeSel').classList.remove('error');
+      $('#name').classList.remove('error');
     }
 
     }
     }
+
+    $('#name').oninput = ()=>{
+                 if (!$('#name').checkValidity() || $('#name').value.trim() == '') {
+        $('#name').classList.add('error'); // or rely on :invalid / :user-invalid in CSS
+    }   else{
+        $('#name').classList.remove('error');
+    }
+    }
+
 
         apps.forEach(a=>{
           const el = document.createElement('option');
@@ -2449,11 +2467,22 @@ function setTrayIcon(id, show, state){
     $('#apps').onchange = () => {
     appIns = apps[$('#apps').value];
     $('#name').value = _(appIns.name);
-    $('#save1').disabled = false;
+    //$('#save1').disabled = false;
+    $('#apps').classList.remove('error');
+    $('#name').classList.remove('error');
+    $('#typeSel').classList.remove('error');
     }
     $('#cancel1').onclick = ()=> this.close();
     $('#save1').onclick = () => {
-      if (!appIns && !fileIns) return;
+
+            if (!$('#name').checkValidity() || $('#name').value.trim() == '') {
+        $('#name').classList.add('error'); // or rely on :invalid / :user-invalid in CSS
+    }
+      if (!appIns && !fileIns){
+        $('#apps').classList.add('error');
+        $('#typeSel').classList.add('error');
+        return;
+    }
     console.log(appIns + " - " + fileIns)
     let ev = null;
     let ic = null;
@@ -2461,6 +2490,7 @@ function setTrayIcon(id, show, state){
       if (appIns){
     ev = () => openApp(appIns);
     ic = appIns.icon;
+    if ($('#name').value.trim() == '') return;
     nm = $('#name').value;
       } else if (fileIns){
         ev = () => Openf(fileIns.type, fileIns.name);
@@ -2776,6 +2806,12 @@ appContainer.onclick = (e) => {
     desktopApps.appendChild(appContainer);
 }
 
+function pushLocUsage(name, mode=null){
+    const currUsage = JSON.parse(localStorage.getItem('.locUsage') || '[]');
+    const timestamp = Date.now();
+    const newUsage = [...currUsage, {name, mode, timestamp}];
+    localStorage.setItem('.locUsage', JSON.stringify(newUsage))
+}
 
 /*
  * Set notification badge.
@@ -2985,9 +3021,8 @@ if (win) {
     function openMenu(event) {
         const menu0 = document.getElementById("appmenu-sys");
         const menu1 = document.getElementById("appmenu-user");
-        const menuList0 = document.getElementById("appmenu-list-sys");
-        const menuList1 = document.getElementById("appmenu-list-user");
-        document.querySelector("#sysmenu").style.display = document.querySelector("#sysmenu").style.display  === 'none' ? 'block' : 'none';
+
+        document.querySelector("#sysmenu").style.display = document.querySelector("#sysmenu").style.display  === 'none' ? 'flex' : 'none';
     if (document.querySelector("#sysmenu").style.display  === 'none') return;
 
         menu0.innerHTML = "";
@@ -3472,7 +3507,7 @@ function fileFromRecord(item) {
 
   async function listUsbContents(mountpoint) {
     if (!mountpoint) {
-      console.warn("Флешка не змонтована (mountpoint відсутній)!");
+      
       return [];
     }
 
@@ -3517,7 +3552,8 @@ function fileFromRecord(item) {
         });
     document.querySelectorAll('[title-i18n]').forEach(element => {
             const key = element.getAttribute('title-i18n');
-            updateSystemPopover(element, _(key), false, false)
+           element.title = _(key);
+
         });
 
     }
@@ -3601,7 +3637,7 @@ document.body.style.backgroundImage = `
             const backgroundFileName = localStorage.getItem('backgroundFile');
             
             if (backgroundFileName) {
-
+backgroundFileName
 
                 const backgroundFile = typeof fs !== 'undefined' ? fs.find(item => item.name === backgroundFileName) : null;
                 
@@ -3625,9 +3661,9 @@ document.body.style.backgroundImage = `
 
                     reader.readAsDataURL(backgroundFile);
                 } else {
-
+console.warn("Saved background file not found, cleared setting. Looked at: "+backgroundFileName)
                     localStorage.removeItem('backgroundFile');
-                    console.log("Saved background file not found, cleared setting.");
+                    console.log();
                     resetBg();
                     resolve(); // <--- КРИТИЧНО: Завершення Promise, якщо файл не знайдено
                 }
@@ -4824,6 +4860,8 @@ log("[OK] Shared libraries loaded: " +  libList().length);
           log("[OK] Clock synced");
           await updateNetwork()
           log("[OK] Networking loaded");
+          await updateLocator()
+          log("[OK] Locator tray entry loaded");
             if (HW_API){
                 document.getElementById('capt_btn').classList.remove('disabled')
                 log("[OK] Screen Capture service loaded");
@@ -4906,6 +4944,9 @@ log("[OK] Shared libraries loaded: " +  libList().length);
       if (app.path.includes('/') && app.path.startsWith(app.name.split('.')[0]+'/')){
         try{
         await purgeDir(app.name.split('.')[0]+'/'); // ex: gm.html -> gm/*}
+        if (filesSettings.pinnedFldrs.some(fldr=>fldr.name == app.name.split('.')[0]+'/' && (fldr.drive == currentDisk.name))){
+                await loadFoldersList()
+            }
       }catch {
         return console.error('App found, but unable to delete the folder.')
       }
@@ -5104,7 +5145,7 @@ return insLst;
         expand += `Notification.requestPermission()\n`;
     }
 
-    if (content.includes("navigator.geolocation.getCurrentPosition") && !content.includes("navigator.geolocation.request()")){
+    if ((content.includes("navigator.geolocation.getCurrentPosition(") || content.includes('navigator.geolocation.watchPosition(') )&& !content.includes("navigator.geolocation.request()")){
         expand += `fakeGeolocation.request()\n`;
     }
 
@@ -5147,9 +5188,7 @@ const rootStyles = window.getComputedStyle(document.documentElement);
     const redefiner1 = `
 
       <script>
-      document.querySelectorAll('[title]').forEach(e => {
-        parent.updateSystemPopover(e, e.title, true, true)
-    })
+
       document.querySelectorAll('iframe[sandbox]').forEach(e => {
         // Standard tokens
         e.sandbox.remove('allow-modals', 'allow-popups', 'allow-popups-to-escape-sandbox');
@@ -5202,105 +5241,73 @@ if (fileToSave instanceof File){
         parent.getFs().push(fileToSave);
         await parent.saveFileToDB(fileToSave);
 }
-
-
-
-
-
         new parent.Notification("${name.replace(/'/g, "\\'")}", {body: parent._('saved_file_to').replace('{path}', fileToSave.name)})
     }
+
+
 
   function getDownloadName(anchor) {
       const download = anchor.getAttribute("download");
       return download || anchor.href.split("/").pop() || "download";
   }
 
-    function interceptDownload(anchor) {
-        if (!anchor?.hasAttribute("download")) return false;
+        function interceptDownload(anchor) {
+    if (!anchor?.hasAttribute("download")) return false;
 
-        handleDownload(anchor.href, getDownloadName(anchor));
-        return true;
+    handleDownload(anchor.href, getDownloadName(anchor));
+    return true;
+}
+
+function handleLink(anchor) {
+    const rawHref = anchor.getAttribute("href");
+    if (!rawHref || rawHref === "#" || rawHref.startsWith("javascript:")) return false;
+
+    let url;
+    try {
+        url = new URL(anchor.href);
+    } catch {
+        return false;
     }
 
-    // Перехоплення a.click()
-    const originalAnchorClick = HTMLAnchorElement.prototype.click;
+    if (!/^https?:$/.test(url.protocol)) return false;
 
-    HTMLAnchorElement.prototype.click = function () {
-        if (interceptDownload(this)) return;
-
-        try {
-            // FIX: Use 'this' instead of 'anchor'
-            const clickedUrl = new URL(this.href);
-            if (this.href == '#') { event.preventDefault(); return;};
-            // This will definitely show up now!
-            
-
-            const assoc = parent.getUrlAssoc();
-            if (assoc.hasOwnProperty(clickedUrl.origin)) {
-                event.preventDefault()
-                console.log("URL ASSOC FOUND!")
-                const appPath = assoc[clickedUrl.origin];
-                const targetUrl = appPath + "?url=" + encodeURIComponent(anchor.href);
-        
-        // Launch your Infinity OS application with the full payload
+    const assoc = parent.getUrlAssoc();
+    if (Object.prototype.hasOwnProperty.call(assoc, url.origin)) {
+        console.log("URL ASSOC FOUND!");
+        const targetUrl = assoc[url.origin] + "?url=" + encodeURIComponent(anchor.href);
         parent.Openf("text/html", targetUrl);
-                return; // Return early without calling originalAnchorClick
-            }else{
-              parent.window.open(anchor.href);
-        return;
-            }
-        } catch (e) {
-            console.error("URL parsing failed inside prototype.click:", e);
-        }
-
-        return originalAnchorClick.call(this);
-    };
-
-    // Перехоплення dispatchEvent(new MouseEvent("click"))
-    const originalDispatch = HTMLAnchorElement.prototype.dispatchEvent;
-
-    HTMLAnchorElement.prototype.dispatchEvent = function (event) {
-        if (event?.type === "click" && interceptDownload(this))
-            return true;
-
-        return originalDispatch.call(this, event);
-    };
-
-    // Перехоплення реального кліку користувача
-    window.addEventListener(
-        "click",
-        (e) => {
-            const anchor = e.target.closest("a");
-            if (!anchor) return; // Quick guard check
-
-            if (interceptDownload(anchor)) {
-                e.preventDefault();
-                return;
-            }
-
-            try {
-                const clickedUrl = new URL(anchor.href);
-        if (anchor.href == '#') return;
-                const assoc = parent.getUrlAssoc();
-
-                if (assoc.hasOwnProperty(clickedUrl.origin)) {
-                    e.preventDefault(); // Stop actual browser redirect
-                    const appPath = assoc[clickedUrl.origin];
-                    console.log("URL ASSOC FOUND!")
-                    const targetUrl = appPath + "?url=" + encodeURIComponent(anchor.href);
-
-    // Launch your Infinity OS application with the full payload
-    parent.Openf("text/html", targetUrl);
-                }else{
+    } else {
         parent.window.open(anchor.href);
+    }
+    return true; // handled
+}
+
+// a.click()
+const originalAnchorClick = HTMLAnchorElement.prototype.click;
+HTMLAnchorElement.prototype.click = function () {
+    if (interceptDownload(this)) return;
+    if (handleLink(this)) return;
+    return originalAnchorClick.call(this);
+};
+
+// dispatchEvent
+const originalDispatch = HTMLAnchorElement.prototype.dispatchEvent;
+HTMLAnchorElement.prototype.dispatchEvent = function (event) {
+    if (event?.type === "click" && interceptDownload(this)) return true;
+    return originalDispatch.call(this, event);
+};
+
+// real user clicks
+window.addEventListener("click", (e) => {
+    const anchor = e.target.closest?.("a");
+    if (!anchor) return;
+
+    if (interceptDownload(anchor)) {
+        e.preventDefault();
         return;
-                }
-            } catch (err) {
-                // Ignore malformed URLs or javascript:void(0) links
-            }
-        },
-        true
-    );
+    }
+    if (handleLink(anchor)) e.preventDefault();
+}, true);
 
 
     function buildPickerOptions(input) {
@@ -5703,11 +5710,13 @@ navigator.mediaSession.setPositionState = (stateData) => parent.setMinProgress(s
   async getUserMedia(constraints = {}) {
     const isGranted = Boolean(parent.getPerms()[${JSON.stringify(name)}]?.mediaDevices === true);
     if (!isGranted) throw new DOMException("Permission denied by user", "NotAllowedError");
-    return originalGetUserMedia(constraints);
+    return originalGetUseerrorCallbackrMedia(constraints);
   }
   }
   }
 
+
+window.activeWatches =new Map()
     window.fakeGeolocation = {
       async request(){
         const existing = permissions["${name}"];
@@ -5717,21 +5726,25 @@ navigator.mediaSession.setPositionState = (stateData) => parent.setMinProgress(s
         }
       },
 
-     async getCurrentPosition(successCallback, errorCallback, options) {
+     async getCurrentPosition(successCallback, errorCallback, options, ignoreLog=false) {
     if (typeof successCallback !== 'function') return;
     const perms = parent.getPerms();
-    if (!perms[${JSON.stringify(name)}] || perms[${JSON.stringify(name)}].location !== true) return;
-parent.setTrayIcon('geodata', true)
+        
+    if (!perms[${JSON.stringify(name)}] || perms[${JSON.stringify(name)}].location !== true) return errorCallback({ code: 1, message: "Position unavailable", PERMISSION_DENIED: true });
+if (!parent.getLocState()){
+        errorCallback({ code: 1, message: "Position unavailable", PERMISSION_DENIED: true });
+        return;
+} 
     try {
       const response = await fetch('https://ipapi.co/json/');
                 const data = await response.json();
                 
                 if (!data || data.error) {
-                    if (typeof errorCallback === 'function') errorCallback({ code: 2, message: "Position unavailable", PERMISSION_DENIED: true });
+                    if (typeof errorCallback === 'function') errorCallback({ code: 1, message: "Position unavailable", PERMISSION_DENIED: true });
                     return; // Stop execution if API fails
                 }
                 // Create the readable query for the map frame
-
+                if (!ignoreLog) parent.pushLocUsage('${name}')
                 successCallback({
                     coords: {
                         latitude: data.latitude,
@@ -5744,57 +5757,34 @@ parent.setTrayIcon('geodata', true)
                     },
                     timestamp: Date.now()
                 });
-        parent.setTrayIcon('geodata', false)
+        
             } catch {
-        parent.setTrayIcon('geodata', true, -1)
+        
                 if (typeof errorCallback === 'function') errorCallback({ code: 2, message: "Position unavailable", POSITION_UNAVAILABLE: true });
-        parent.setTrayIcon('geodata', false)
+        
             }
         },
 
-        watchPosition: (successCallback, errorCallback, options) => {
-            if (typeof successCallback !== 'function') return null;
-
-            const watchId = Math.floor(Math.random() * 1000000);
-            
-            // Store the callbacks so updateSystemLocation can trigger them later
-            activeWatches.set(watchId, { successCallback, errorCallback, options });
-
-            // PLACE TO RETURN COORDS: Deliver the initial position right away by calling our fixed function directly
-            setTimeout(() => {
-                navigator.geolocation.getCurrentPosition(successCallback, errorCallback, options);
-            }, 0);
-
-            return watchId;
-        },
+watchPosition(successCallback, errorCallback, options) {
+  if (typeof successCallback !== 'function') return null;
+  if (!perms[${JSON.stringify(name)}] || perms[${JSON.stringify(name)}].location !== true) return errorCallback({ code: 1, message: "Position unavailable", PERMISSION_DENIED: true });
+  const watchId = ++window.watchSeq;
+  activeWatches.set(watchId, { successCallback, errorCallback, options });
+  parent.pushLocUsage(${JSON.stringify(name)}, true);
+  setTimeout(() => {
+    this.getCurrentPosition(successCallback, errorCallback, options, true);
+  }, 0);
+  return watchId;
+},
 
         clearWatch: (watchId) => {
             activeWatches.delete(watchId);
+        parent.pushLocUsage('${name}', false)
         }
     };
 
       ${expand}
-    try{
-    // 1. Create the observer
-    const globalTitleObserver = new MutationObserver((mutationsList) => {
-      for (const mutation of mutationsList) {
-        // Check if an attribute changed and that attribute is 'title'
-        if (mutation.type === 'attributes' && mutation.attributeName === 'title') {
-          const el = mutation.target;
-          
-          // Call your parent function
-          parent.updateSystemPopover(el, el.title, true, true);
-        }
-      }
-    });
 
-    // 2. Start observing the entire document
-    globalTitleObserver.observe(document.body, {
-      attributes: true,
-      subtree: true,             // Traverses down to watch ALL elements inside the body
-      attributeFilter: ['title'] // Ignores all changes except the 'title' attribute
-    });
-    }catch{}
       
 
 
@@ -5940,239 +5930,6 @@ modifiedContent = modifiedContent.replaceAll(
 
 
 
-async function htmlToDocx(htmlString) {
-    if (typeof JSZip === 'undefined') {
-        throw new Error("JSZip is required to generate .docx files.");
-    }
-
-    const zip = new JSZip();
-
-    // 1. Content Types (Register numbering.xml & styles.xml)
-    zip.file("[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="xml" ContentType="application/xml"/>
-  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
-  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
-  <Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>
-</Types>`);
-
-    // 2. Global Relationships
-    zip.folder("_rels").file(".rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
-</Relationships>`);
-
-    // 3. Document Relationships (Link document.xml to styles.xml and numbering.xml)
-    zip.folder("word").folder("_rels").file("document.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
-  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>
-</Relationships>`);
-
-    // 4. Styles Definition
-    zip.folder("word").file("styles.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:style w:type="paragraph" w:styleId="Center">
-    <w:name w:val="Center"/>
-    <w:pPr><w:jc w:val="center"/></w:pPr>
-  </w:style>
-  <w:style w:type="paragraph" w:styleId="Right">
-    <w:name w:val="Right"/>
-    <w:pPr><w:jc w:val="right"/></w:pPr>
-  </w:style>
-  <w:style w:type="paragraph" w:styleId="Left">
-    <w:name w:val="Left"/>
-    <w:pPr><w:jc w:val="left"/></w:pPr>
-  </w:style>
-</w:styles>`);
-
-    // 5. Native OOXML Numbering Definitions (numId 1 = Bullet, numId 2 = Decimal)
-    zip.folder("word").file("numbering.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:abstractNum w:abstractNumId="0">
-    <w:lvl w:ilvl="0">
-      <w:start w:val="1"/>
-      <w:numFmt w:val="bullet"/>
-      <w:lvlText w:val="•"/>
-      <w:lvlJc w:val="left"/>
-      <w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr>
-    </w:lvl>
-  </w:abstractNum>
-  <w:abstractNum w:abstractNumId="1">
-    <w:lvl w:ilvl="0">
-      <w:start w:val="1"/>
-      <w:numFmt w:val="decimal"/>
-      <w:lvlText w:val="%1."/>
-      <w:lvlJc w:val="left"/>
-      <w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr>
-    </w:lvl>
-  </w:abstractNum>
-  <w:num w:numId="1">
-    <w:abstractNumId w:val="0"/>
-  </w:num>
-  <w:num w:numId="2">
-    <w:abstractNumId w:val="1"/>
-  </w:num>
-</w:numbering>`);
-
-    // Helper: Clean Hex Colors
-    function cleanHexColor(colorStr) {
-        if (!colorStr) return null;
-        if (colorStr.startsWith('#')) return colorStr.slice(1).toUpperCase();
-        const rgb = colorStr.match(/\d+/g);
-        if (rgb && rgb.length >= 3) {
-            return rgb.slice(0, 3).map(x => parseInt(x).toString(16).padStart(2, '0')).join('').toUpperCase();
-        }
-        return null;
-    }
-
-    // Helper: Recursively extract text runs with formatting
-    function parseInlineNodes(node, currentStyle = {}) {
-        let runsXml = '';
-
-        node.childNodes.forEach(child => {
-            if (child.nodeType === Node.TEXT_NODE) {
-                const text = child.textContent.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                if (!text) return;
-
-                let rPr = '';
-                if (currentStyle.bold) rPr += '<w:b/>';
-                if (currentStyle.italic) rPr += '<w:i/>';
-                if (currentStyle.underline) rPr += '<w:u w:val="single"/>';
-                if (currentStyle.strike) rPr += '<w:strike/>';
-                if (currentStyle.color) rPr += `<w:color w:val="${currentStyle.color}"/>`;
-
-                runsXml += `<w:r>${rPr ? `<w:rPr>${rPr}</w:rPr>` : ''}<w:t xml:space="preserve">${text}</w:t></w:r>`;
-            } else if (child.nodeType === Node.ELEMENT_NODE) {
-                const tagName = child.tagName.toLowerCase();
-                const style = child.style || {};
-
-                if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'center', 'ul', 'ol', 'li'].includes(tagName)) {
-                    return;
-                }
-
-                const newStyle = {
-                    bold: currentStyle.bold || ['b', 'strong'].includes(tagName) || style.fontWeight === 'bold' || parseInt(style.fontWeight) >= 600,
-                    italic: currentStyle.italic || ['i', 'em'].includes(tagName) || style.fontStyle === 'italic',
-                    underline: currentStyle.underline || ['u', 'ins'].includes(tagName) || style.textDecoration?.includes('underline'),
-                    strike: currentStyle.strike || ['s', 'strike', 'del'].includes(tagName) || style.textDecoration?.includes('line-through'),
-                    color: cleanHexColor(style.color) || currentStyle.color
-                };
-
-                if (tagName === 'br') {
-                    runsXml += '<w:r><w:br/></w:r>';
-                } else {
-                    runsXml += parseInlineNodes(child, newStyle);
-                }
-            }
-        });
-
-        return runsXml;
-    }
-
-    function getAlignment(el) {
-        const tagName = el.tagName.toLowerCase();
-        const styleAlign = (el.style?.textAlign || el.getAttribute('align') || '').toLowerCase();
-        const classList = el.classList;
-
-        if (tagName === 'center' || styleAlign === 'center' || classList.contains('center')) {
-            return { id: 'Center', val: 'center' };
-        }
-        if (styleAlign === 'right' || classList.contains('right')) {
-            return { id: 'Right', val: 'right' };
-        }
-        if (styleAlign === 'left' || classList.contains('left')) {
-            return { id: 'Left', val: 'left' };
-        }
-        return null;
-    }
-
-    // 6. Process HTML into Word Paragraphs (<w:p>)
-    const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = htmlString;
-
-    let wordXmlContent = '';
-
-    function processBlockElement(element, listNumId = null) {
-        const tagName = element.tagName ? element.tagName.toLowerCase() : '';
-
-        // Handle List Containers
-        if (tagName === 'ul') {
-            Array.from(element.children).forEach(child => {
-                if (child.tagName && child.tagName.toLowerCase() === 'li') {
-                    processBlockElement(child, 1); // 1 = Bullet List
-                }
-            });
-            return;
-        }
-
-        if (tagName === 'ol') {
-            Array.from(element.children).forEach(child => {
-                if (child.tagName && child.tagName.toLowerCase() === 'li') {
-                    processBlockElement(child, 2); // 2 = Ordered List
-                }
-            });
-            return;
-        }
-
-        let pPr = '';
-
-        // Attach native OOXML numbering attributes for Mammoth parsing
-        if (listNumId !== null) {
-            pPr += `<w:numPr><w:numId w:val="${listNumId}"/><w:ilvl w:val="0"/></w:numPr>`;
-        }
-
-        const align = getAlignment(element);
-        if (align) {
-            pPr += `<w:pStyle w:val="${align.id}"/><w:jc w:val="${align.val}"/>`;
-        }
-
-        if (tagName.startsWith('h') && tagName.length === 2) {
-            const level = tagName.replace('h', '');
-            pPr += `<w:pStyle w:val="Heading${level}"/>`;
-        }
-
-        const runs = parseInlineNodes(element);
-
-        if (runs) {
-            wordXmlContent += `<w:p>${pPr ? `<w:pPr>${pPr}</w:pPr>` : ''}${runs}</w:p>`;
-        } else if (element.innerText && element.innerText.trim()) {
-            const escaped = element.innerText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            wordXmlContent += `<w:p>${pPr ? `<w:pPr>${pPr}</w:pPr>` : ''}<w:r><w:t xml:space="preserve">${escaped}</w:t></w:r></w:p>`;
-        }
-    }
-
-    Array.from(tempDiv.childNodes).forEach(node => {
-        if (node.nodeType === Node.TEXT_NODE) {
-            const text = node.textContent.trim();
-            if (text) {
-                const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                wordXmlContent += `<w:p><w:r><w:t xml:space="preserve">${escaped}</w:t></w:r></w:p>`;
-            }
-        } else if (node.nodeType === Node.ELEMENT_NODE) {
-            processBlockElement(node);
-        }
-    });
-
-    if (!wordXmlContent && tempDiv.innerText.trim()) {
-        const escaped = tempDiv.innerText.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        wordXmlContent = `<w:p><w:r><w:t xml:space="preserve">${escaped}</w:t></w:r></w:p>`;
-    }
-
-    // 7. Build Document XML
-    zip.folder("word").file("document.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
-  <w:body>
-    ${wordXmlContent}
-  </w:body>
-</w:document>`);
-
-    return await zip.generateAsync({ 
-        type: "blob", 
-        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
-    });
-}
 
 
 
@@ -6449,947 +6206,7 @@ function normalizeGraph(parsed) {
     };
 }
 
-
-
-    /**
-     * Відкриває файл у новому вікні WinBox.
-     * * @param {Event | File | string} source - Об'єкт події DOM, об'єкт File, або ім'я файлу (рядок).
-     * @param {function} refr - Функція оновлення (наприклад, null).
-     * @param {string} [type=null] - Примусовий MIME-тип (наприклад, "text/plain").
-     * @param {File} [file=null] - Об'єкт файлу, якщо 'source' є подією, але викликано з контекстного меню.
-     */
-    function Openf(type, file = null, allowOpenWith = true) {
-        let fileWinBox;
-        let fileType = "unknown";
-        let exfile = null;      // Found File object
-        let filestr = null;     // File name
-        let isEditable = false;
-        const uniqueFileId = "content-" + Date.now();
-
-        const fileOrName =
-            typeof file === "string" ? file.split("?")[0] : file;
-
-        if (typeof fileOrName === "string") {
-            filestr = fileOrName;
-            exfile = fs.find(f => f.name.trim() === filestr.trim());
-        } else if (fileOrName instanceof File) {
-            exfile = fileOrName;
-            filestr = exfile.name;
-        }
-
-        if (!exfile) {
-            console.error("File not found: " + fileOrName);
-            return;
-        }
-
-        fileType = type || exfile.type;
-
-        const ic = getIcon(exfile);
-
-        if (allowOpenWith) {
-            const nm = typeof file === "object" ? file.name : file;
-
-            if (getExt(exfile) && !nm.includes("?") && !nm.includes("=")) {
-                const config = FILE_TYPES[exfile.name.split(".").pop()];
-
-                if (config?.openWith && config.openWith !== "openf") {
-                    const app = apps.find(app => app.path === config.openWith);
-                    if (!app) return;
-
-                    Openf(
-                        getMimeType(app.path),
-                        `${app.path}?${app.openWithParam}=${exfile.name}`
-                    );
-                    return;
-                }
-            }
-        }
-
-          
-
-          const typeclass = fileType.split("/")[0];
-          let DO_NOT_REPLACE = false;
-  const minWidth = 255;
-  const minHeight = 200;
-
-  const width = Math.max(window.innerWidth * 0.30, minWidth);
-  const height = Math.max(window.innerHeight * 0.35, minHeight);
-
-const fndApp = apps.find(a=>a.path == exfile.name);
-
-if (fndApp  && type == 'text/html'){
-if (fndApp.launch_handler__client_mode){
-    let autoMode = 'navigate-new';
-    if (detectMobile()) autoMode = 'navigate-existing';
-        if (fndApp.launch_handler__client_mode == 'focus-existing' || fndApp.launch_handler__client_mode == 'navigate-existing' || (fndApp.launch_handler__client_mode == 'auto' && autoMode == 'navigate-existing')){
-            const fndRun0 = runningApps.find(a=>a.name == fndApp.name)
-            if (fndRun0){
-                fore(fndRun0.id);
-                return;
-        }
-            
-        }else if (fndApp.launch_handler__client_mode == 'navigate-new' || (fndApp.launch_handler__client_mode == 'auto' && autoMode == 'navigate-new')) {
-            // Continue
-            console.log('New PWA window created: '+fndApp.name)
-        }
-    }
-}
-
-  fileWinBox = new wm(filestr, {
-      icon: ic,
-      x: "center",
-      y: "center",
-      class: [wbtheme, typeclass, "hidden", 'loading', 'no-full'],
-      minwidth: minWidth,
-      minheight: minHeight,
-      width,
-      height,
-      html: `<div style="
-    color: var(--color-text-primary);
-    background-color: var(--bg-color);
-    width: 100%;
-    height: 100%;
-    padding: 10px;
-    box-sizing: border-box;
-    display: flex;
-    font-size: 20px;
-    align-items: center;
-    justify-content: center;
-">${_('loading')}</div>`
-  });
-
-  if (fndApp && type == 'text/html'){
-    if (fndApp.display){
-        if (fndApp.display == 'minimal-ui'){
-fileWinBox.addControl({
-    // the position index
-    index: 2,
-    // classname to apply styling
-    class: "wb-menu",
-    // icon url when not specified via classname
-    image: "",
-    // click listener
-    click: function(event, winbox){
-        // the winbox instance will be passed as 2nd parameter
-        alert(winbox.id);
-        
-    }
-});
-
-        }else if (fndApp.display == 'fullscreen'){
-            fileWinBox.removeClass('no-full');
-            fileWinBox.addClass('allow-full')
-fileWinBox.fullscreen(1);
-        }
-    }
-  }
-
-        const reader = new FileReader();
-
-        reader.onload = async function(e) {
-            const content = e.target.result;
-            let newContent = '';
-            let wasSaved = true; // For those types, which aren't editable, or saveable.
-
-
-      
-
-            
-            if (fileType == "application/x-theme" || fileType == 'application/x-kde-palette') {
-    localStorage.setItem("theme", exfile.name);
-    
-            const parser = new ThemeParser();
-            const thm = parser.parse(content, exfile.name); 
-    await parser.applyTheme(thm.styles)
-    await applyThemeToUI(thm.name)
-
-    fileWinBox.close();
-            }
-                
-            
-    if (fileType.startsWith("font/") || fileType === "application/x-font-ttf" || fileType === "application/font-woff") {
-      isEditable = false;
-        const fontName = exfile.name;
-        
-        // 2. Map the fileType to the proper CSS format() string
-        let cssFormat = "";
-        if (fileType.includes("woff2")) {
-            cssFormat = 'format("woff2")';
-        } else if (fileType.includes("woff")) {
-            cssFormat = 'format("woff")';
-        } else if (fileType.includes("ttf") || fileType.includes("truetype")) {
-            cssFormat = 'format("truetype")';
-        } else if (fileType.includes("otf") || fileType.includes("opentype")) {
-            cssFormat = 'format("opentype")';
-        }
-
-        newContent = `
-        <style>
-            @font-face {
-                font-family: '${uniqueFileId}';
-                /* Added the dynamic format hint here */
-                src: url(${e.target.result}) ${cssFormat};
-            }
-            .preview-container-${uniqueFileId} { 
-                font-family: '${uniqueFileId}', serif !important; 
-                padding: 15px;
-            }
-        </style>
-
-        <div class="toolbar">
-            <button onclick="updateFonts('add', '${fontName}')">${_('add')}</button>
-            <button onclick="updateFonts('delete', '${fontName}')">${_('delete_btn')}</button>
-            <button onclick="updateFonts('set', '${fontName}')">${_('apply')}</button>
-        </div>
-
-        <div class="no-font preview-container-${uniqueFileId}">
-            <h2>Lorem Ipsum</h2>
-            <p>"Neque porro quisquam est qui dolorem ipsum..."</p>
-            <small>"There is no one who loves pain itself..."</small>
-            <h2>1234567890</h2>
-            <pre>@ # $ _ & - + () / * " ' : ; ! ?</pre>
-        </div>
-        `;
-    }  else if (fileType === 'application/wasm') {
-            isEditable = false;
-            
-            // 1. Inject the canvas element directly using your window's element property
-            newContent = `
-                <canvas id='wasmcanvas' width='640' height='480' style='width:100%; height:100%; display:block;'></canvas>
-            `;
-
-            fileWinBox.body.innerHTML = newContent;
-            DO_NOT_REPLACE = true;
-
-
-            requestAnimationFrame(async()=>{const e=document.getElementById("wasmcanvas");if(!e)return console.error("Wasm canvas target could not be resolved.");const t=e.getContext("2d");try{const n=await WebAssembly.compile(content),o=WebAssembly.Module.imports(n),a={},r={env:{print:e=>console.log(e),random:()=>Math.random(),now:()=>performance.now(),abort:e=>{console.error(`WASM aborted (${e})`)},memory:new WebAssembly.Memory({initial:16,maximum:256}),table:new WebAssembly.Table({initial:0,element:"anyfunc"})}};o.forEach(e=>{a[e.module]||(a[e.module]={}),e.kind==="function"?a[e.module][e.name]=r[e.module]&&typeof r[e.module][e.name]=="function"?r[e.module][e.name]:(...t)=>console.warn(`[Wasm Missing Import Stub -> ${e.module}.${e.name} called with]:`,t):e.kind==="global"?a[e.module][e.name]=new WebAssembly.Global({value:"i32",mutable:!0},0):e.kind==="memory"?a[e.module][e.name]=new WebAssembly.Memory({initial:1}):e.kind==="table"&&(a[e.module][e.name]=new WebAssembly.Table({initial:0,element:"anyfunc"}))});const{instance:i,module:s}=await WebAssembly.instantiate(content,a),l=WebAssembly.Module.exports(s),c=l.find(e=>e.kind==="memory"),d=l.find(e=>e.kind==="function"&&["pointer","buffer","screen","output","mem"].some(t=>e.name.includes(t))),u=c?i.exports[c.name].buffer:i.exports.memory?.buffer||null,f=l.find(e=>e.kind==="function"&&["tick","render","generate","update","main","run","draw"].some(t=>e.name.includes(t))),m=l.filter(e=>e.kind==="function"),p=d?i.exports[d.name]:m.length>1?i.exports[m[0].name]:()=>0,h=f?i.exports[f.name]:m.length>1?i.exports[m[1].name]:i.exports[m[0].name];if(!h){console.error("Could not automatically map lifecycle functions from Wasm export metadata.");return}const g=u&&typeof h=="function"&&typeof p=="function";let y=0,v=!1;if(g)try{y=p(),v=Number.isInteger(y)&&y>=0}catch(e){v=!1}Object.entries(i.exports).forEach(([e,t])=>{typeof t=="function"&&(window.wasm[e]=t)});const b=JSON.parse(localStorage.getItem("autoload"))||[];b.includes(exfile.name)||console.log('ADDED (window.wasm):\n'+Object.keys(i.exports).join(", "));if(!v){fileWinBox.close();return}const w=e.width*e.height*4,E=u.byteLength-y;let M;if(E<w){console.warn(`Wasm memory buffer (${u.byteLength} bytes) is smaller than requested canvas layout (${w} bytes). Auto-scaling resolution down.`);try{M=new Uint8ClampedArray(u,y,Math.floor(E/4)*4)}catch(e){console.error("Wasm memory is insufficient to populate a standard graphical canvas frame context.");return}}else M=new Uint8ClampedArray(u,y,w);p();console.log("WASM getPointer: "+p.name);console.log("WASM renderFrameFn: "+h.name);function R(){h();const t=e.width*e.height*4;if(u.byteLength-y<t)return void requestAnimationFrame(R);const n=new Uint8ClampedArray(u,y,t);t&&ctx.putImageData(new ImageData(n,e.width,e.height),0,0),requestAnimationFrame(R)}R(),console.log(`Successfully parsed and loaded [${exfile.name}].`)}catch(e){console.error("Wasm runtime crashed during dynamic initialization:",e)}})
-        }
-    else if (fileType === "text/csv") {
-      isEditable = true;
-
-
-window.sheetToCsv = function (tableId, computed = false) {
-    const table = document.getElementById(tableId);
-    const Q = v => /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
-    const grid = [...table.querySelectorAll('tbody tr')].map(tr =>
-        [...tr.querySelectorAll('td')].map(td =>
-            computed ? td.innerText.trim() : table.sheet.getRaw(td)));
-
-    // drop only leading rows where every cell is empty
-    while (grid.length && grid[0].every(v => v === '')) grid.shift();
-
-    return grid.map(r => r.map(Q).join(',')).join('\n');
-};
-
-
-const initFormulas = (tableId) => {
-    const table = document.getElementById(tableId);
-    if (!table) return;
-
-    const colIndex = s => s.toUpperCase().split('').reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0) - 1;
-    const find = name => {
-        const m = /^([A-Za-z]+)(\d+)$/.exec(name);
-        return m ? table.querySelector(`td[data-row="${m[2] - 1}"][data-col="${colIndex(m[1])}"]`) : null;
-    };
-    const getRaw = td => td.dataset.raw !== undefined
-        ? td.dataset.raw
-        : td.innerText.replace(/\n$/, '').trim();
-    const setRaw = (td, v) => { td.dataset.raw = v; td.innerText = v; };
-
-    // Sloppy-mode helper so `with` works even if the surrounding code is strict
-    const evalIn = new Function('__D', '__f', 'with(__D){return eval(__f)}');
-    const evaluating = new Set();
-
-    const valueOf = td => {
-        const raw = getRaw(td);
-        if (raw.charAt(0) !== '=' || raw == '=') {
-            const n = parseFloat(raw);
-            return isNaN(n) ? raw : n;
-        }
-        if (evaluating.has(td)) throw new Error('circular');
-        evaluating.add(td);
-        try { return evalIn(D, raw.slice(1)); }
-        finally { evaluating.delete(td); }
-    };
-
-    // Any A1 / a1 / AA10 style identifier resolves to that cell's value;
-    // everything else (Math, Date...) falls through to globals
-    const D = new Proxy({}, {
-        has: (t, k) => typeof k === 'string' && !!find(k),
-        get: (t, k) => typeof k === 'string' ? valueOf(find(k)) : undefined
-    });
-
-    const refresh = () => {
-        table.querySelectorAll('td[data-row]').forEach(td => {
-            if (document.activeElement === td) return;
-            const raw = getRaw(td);
-            if (raw.charAt(0) !== '=' || raw == '=') return;
-            let out;
-            try { out = valueOf(td) == NaN ? "#NAN" : valueOf(td); } catch (e) { out = '#ERR'; }
-            if (out == null) out = '';
-            if (td.innerText !== String(out)) td.innerText = out;
-        });
-    };
-
-    table.addEventListener('focusin', e => {
-        const td = e.target;
-        if (td.tagName === 'TD' && td.dataset.raw !== undefined) td.innerText = td.dataset.raw;
-    });
-    table.addEventListener('focusout', e => {
-        const td = e.target;
-        if (td.tagName !== 'TD') return;
-        td.dataset.raw = td.innerText.replace(/\n$/, '');
-        refresh();
-    });
-
-    table.querySelectorAll('td[data-row]').forEach(td => { td.dataset.raw = td.textContent.trim(); });
-    table.sheet = { getRaw, setRaw, refresh };
-    refresh();
-};
-
-      const initAutoFill = (tableId)=> {
-      const controller = new AbortController();
-  const { signal } = controller;
-      const table = document.getElementById(tableId);
-      const handle = document.getElementById(`fillHandle-${tableId}`);
-      if (!table || !handle) return;
-
-      let selectedCell = null;
-      let isDragging = false;
-      let dragTargetCell = null;
-
-      // Reposition handle to bottom-right of active cell
-      const updateHandlePosition=(cell) => {
-          if (!cell) {
-              handle.style.display = 'none';
-              return;
-          }
-          selectedCell = cell;
-          const rect = cell.getBoundingClientRect();
-          const parentRect = table.parentElement.getBoundingClientRect();
-
-          handle.style.display = 'block';
-          handle.style.top = `${rect.bottom - parentRect.top + table.parentElement.scrollTop -6}px`;
-          handle.style.left = `${rect.right - parentRect.left + table.parentElement.scrollLeft -6}px`;
-      }
-
-      // Sequence Generator
-      const getNextValue = (baseVal, step) => {
-          const trimmed = baseVal.trim();
-
-          // 1. Numbers (1, 2, 3...)
-if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) {
-    return String(Number(trimmed) + step);
-}
-
-          // 2. Letters (a-z, A-Z)
-          if (trimmed.length === 1 && /[a-zA-Z]/.test(trimmed)) {
-              const charCode = trimmed.charCodeAt(0);
-              const isUpper = charCode >= 65 && charCode <= 90;
-              const baseCode = isUpper ? 65 : 97;
-              const nextCode = baseCode + ((charCode - baseCode + step) % 26);
-              return String.fromCharCode(nextCode);
-          }
-
-          // Default: copy value if pattern not recognized
-          return baseVal;
-      }
-
-      // 1. Focus listener to attach handle
-      table.addEventListener('focusin', (e) => {
-          if (e.target.tagName === 'TD') updateHandlePosition(e.target);
-      });
-
-      // 2. Handle Mouse Down
-      handle.addEventListener('pointerdown', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          isDragging = true;
-      },{ signal });
-
-      // 3. Highlight range during drag
-      table.addEventListener('pointermove', (e) => {
-          if (!isDragging || !selectedCell) return;
-          const target = e.target.closest('td');
-          if (!target) return;
-
-          dragTargetCell = target;
-          const startRow = parseInt(selectedCell.dataset.row);
-          const startCol = parseInt(selectedCell.dataset.col);
-          const endRow = parseInt(target.dataset.row);
-          const endCol = parseInt(target.dataset.col);
-
-          const minRow = Math.min(startRow, endRow);
-          const maxRow = Math.max(startRow, endRow);
-          const minCol = Math.min(startCol, endCol);
-          const maxCol = Math.max(startCol, endCol);
-
-          table.querySelectorAll('td').forEach(td => {
-              const r = parseInt(td.dataset.row);
-              const c = parseInt(td.dataset.col);
-              if (r >= minRow && r <= maxRow && c >= minCol && c <= maxCol) {
-                  td.classList.add('drag-highlight');
-              } else {
-                  td.classList.remove('drag-highlight');
-              }
-          });
-      }, { signal });
-  document.addEventListener('pointerdown', (e)=> {
-    if (e.target.tagName === 'TD') updateHandlePosition(e.target);
-    else updateHandlePosition()
-  },{ signal })
-      // 4. Perform Auto-Fill on Mouse Up
-      document.addEventListener('pointerup', () => {
-          if (!isDragging || !selectedCell || !dragTargetCell) {
-              isDragging = false;
-              return;
-          }
-          isDragging = false;
-
-          const startRow = parseInt(selectedCell.dataset.row);
-          const startCol = parseInt(selectedCell.dataset.col);
-          const endRow = parseInt(dragTargetCell.dataset.row);
-          const endCol = parseInt(dragTargetCell.dataset.col);
-
-          const baseValue = table.sheet.getRaw(selectedCell);   // was selectedCell.innerText
-
-          // Vertical vs Horizontal Drag priority
-          const rowDiff = Math.abs(endRow - startRow);
-          const colDiff = Math.abs(endCol - startCol);
-
-          if (rowDiff >= colDiff) {
-              // Vertical Drag (Up / Down)
-              const dir = endRow >= startRow ? 1 : -1;
-              for (let r = startRow + dir; dir > 0 ? r <= endRow : r >= endRow; r += dir) {
-                  const step = Math.abs(r - startRow) * dir;
-                  const cell = table.querySelector(`td[data-row="${r}"][data-col="${startCol}"]`);
-                  if (cell) table.sheet.setRaw(cell, getNextValue(baseValue, step));
-              }
-          } else {
-              // Horizontal Drag (Left / Right)
-              const dir = endCol >= startCol ? 1 : -1;
-              for (let c = startCol + dir; dir > 0 ? c <= endCol : c >= endCol; c += dir) {
-                  const step = Math.abs(c - startCol) * dir;
-                  const cell = table.querySelector(`td[data-row="${startRow}"][data-col="${c}"]`);
-                  if (cell) table.sheet.setRaw(cell, getNextValue(baseValue, step));
-              }
-          }
-table.sheet.refresh();
-          // Cleanup highlights & update position
-          table.querySelectorAll('td').forEach(td => td.classList.remove('drag-highlight'));
-          updateHandlePosition(dragTargetCell);
-      },{ signal });
-      fileWinBox.onclose = ()=>{
-  controller.abort('Spreadsheet closed');
-  }
-  }
-
-
-
-
-// Helper to convert 0-based column index to Excel letters (0 -> A, 25 -> Z, 26 -> AA)
-function getColLabel(index) {
-    let label = '';
-    let i = index;
-    while (i >= 0) {
-        label = String.fromCharCode((i % 26) + 65) + label;
-        i = Math.floor(i / 26) - 1;
-    }
-    return label;
-}
-
-function parseCsv(text) {
-    const rows = []; let row = [], f = '', q = false;
-    text = text.replace(/^\ufeff/, '');
-    for (let i = 0; i < text.length; i++) {
-        const ch = text[i];
-        if (q) {
-            if (ch === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; }
-            else f += ch;
-        } else if (ch === '"') q = true;
-        else if (ch === ',') { row.push(f); f = ''; }
-        else if (ch === '\n' || ch === '\r') {
-            if (ch === '\r' && text[i + 1] === '\n') i++;
-            row.push(f); rows.push(row); row = []; f = '';
-        } else f += ch;
-    }
-    row.push(f); rows.push(row);
-    return rows;
-}
-const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-const rows = parseCsv(content.trimEnd());
-
-// Determine max column count across all rows
-const maxCols = Math.max(...rows.map(r => r.length), 0);
-
-let tableHtml = `
-<table id="${uniqueFileId}" style=" border-spacing: 0;width:100%; border-collapse:collapse; padding:0; margin:0; color: var(--color-text-primary); user-select: none;">`;
-
-// 1. Render Top Column Headers (Corner cell + A, B, C...)
-tableHtml += "<thead><tr style='text-align: center; font-weight: bold; position: sticky; top: 0; z-index: 2; background: var(--toolbar-bg);'>";
-tableHtml += "<th style='border:1px solid #ccc; padding:5px 10px; width:40px; min-width:40px; background: var(--toolbar-bg);'></th>"; // Top-left corner
-
-for (let c = 0; c < maxCols; c++) {
-    tableHtml += `<th style='border:1px solid #ccc; padding:5px 10px; min-width:60px; background: var(--toolbar-bg); font-size:15px;'>${getColLabel(c)}</th>`;
-}
-tableHtml += "</tr></thead><tbody>";
-
-// 2. Render Data Rows with Left Row Numbers (1, 2, 3...)
-rows.forEach((row, rowIndex) => {
-    tableHtml += "<tr>";
-    
-    // Row Index Header Cell
-    tableHtml += `<th style="border:1px solid #ccc; padding:5px 10px; background: var(--toolbar-bg); font-size:15px; text-align:center; position: sticky; left: 0; z-index: 1;">${rowIndex + 1}</th>`;
-    
-    row.forEach((cell, cellIndex) => {
-        tableHtml += `<td contenteditable="true" 
-                        data-row="${rowIndex}" data-col="${cellIndex}"
-                        style="border:1px solid #ccc; padding:5px; min-width:60px; position:relative;">
-                        ${cell}</td>`;
-    });
-
-    // Fill remaining empty cells if row length is shorter than maxCols
-    for (let c = row.length; c < maxCols; c++) {
-        tableHtml += `<td contenteditable="true" 
-                        data-row="${rowIndex}" data-col="${c}"
-                        style="border:1px solid #ccc; padding:5px; min-width:60px; position:relative;"></td>`;
-    }
-
-    tableHtml += "</tr>";
-});
-
-tableHtml += `</tbody></table>
-<div id="fillHandle-${uniqueFileId}" class="fill-handle" style="display:none; position:absolute; width:5px; height:5px; background:var(--accent-color, #0078d7); border:1px solid #fff; cursor:crosshair; z-index:10;"></div>
-<style>
-  #${uniqueFileId} td { user-select: text; }
-  #${uniqueFileId} td:focus { outline: 1px solid var(--accent-color, #0078d7) !important; z-index: 1; }
-  #${uniqueFileId} td.drag-highlight { background: var(--accent-color, #0078d7) !important; color: #fff; }
-</style>`;
-// Global helper (ensure this exists in scope or window)
-window.getColLabel = function(index) {
-    let label = '';
-    let i = index;
-    while (i >= 0) {
-        label = String.fromCharCode((i % 26) + 65) + label;
-        i = Math.floor(i / 26) - 1;
-    }
-    return label;
-};
-
-window.addRow = function(tableId) {
-    const table = document.getElementById(tableId);
-    if (!table) return;
-
-    const tbody = table.querySelector('tbody') || table;
-    const rowIndex = tbody.children.length; // 0-based data row index
-    const colCount = table.querySelectorAll('thead th').length - 1; // subtract corner th
-    
-    const tr = document.createElement('tr');
-
-    // 1. Add sticky Row Header (1, 2, 3...)
-    const th = document.createElement('th');
-    th.textContent = rowIndex + 1;
-    th.style.cssText = "border:1px solid #ccc; padding:4px 8px; background: var(--toolbar-bg); font-size:15px; text-align:center; position: sticky; left: 0; z-index: 1;";
-    tr.appendChild(th);
-
-    // 2. Add standard data cells
-    for (let c = 0; c < (colCount > 0 ? colCount : 1); c++) {
-        const td = document.createElement('td');
-        td.contentEditable = "true";
-        td.dataset.row = rowIndex;
-        td.dataset.col = c;
-        td.style.cssText = "border:1px solid #ccc; padding:5px; min-width:60px; position:relative;";
-        tr.appendChild(td);
-    }
-
-    tbody.appendChild(tr);
-};
-
-window.addCol = function(tableId) {
-    const table = document.getElementById(tableId);
-    if (!table) return;
-
-    // 1. Calculate new column index
-    const headerRow = table.querySelector('thead tr');
-    const existingCols = headerRow ? headerRow.children.length - 1 : 0; // subtract corner cell
-    const newColIndex = existingCols;
-
-    // 2. Append new Column Header (A, B, C...) to <thead>
-    if (headerRow) {
-        const th = document.createElement('th');
-        th.textContent = window.getColLabel(newColIndex);
-        th.style.cssText = "border:1px solid #ccc; padding:4px 8px; min-width:60px; background: var(--toolbar-bg); font-size:15px;";
-        headerRow.appendChild(th);
-    }
-
-    // 3. Append new <td> cell to each row in <tbody>
-    const bodyRows = table.querySelectorAll('tbody tr');
-    bodyRows.forEach((tr, rIndex) => {
-        const td = document.createElement('td');
-        td.contentEditable = "true";
-        td.dataset.row = rIndex;
-        td.dataset.col = newColIndex;
-        td.style.cssText = "border:1px solid #ccc; padding:5px; min-width:60px; position:relative;";
-        tr.appendChild(td);
-    });
-};
-
-      newContent = `
-        <div id="csvContainer-${uniqueFileId}" style="height: 100%; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; background-color: var(--bg-color); position: relative;">
-          <div class="toolbar" style="flex-shrink: 0;">
-            
-        <select style='appearance: base-select; height:25px;' id="save-mode-${uniqueFileId}">
-  <!-- This button automatically acts as the native trigger -->
-<button id="saveBtn-${uniqueFileId}">${_('save_btn')}</button>
-  <option value='saveNone' disabled hidden selected></option>
-  <option value="csv_pres">CSV (${_('with_formulas_preservation')})</option>
-  <option value="csv">CSV (${_('computed_values')})</option>
-</select>
-            <button id="printBtn-${uniqueFileId}">${_('print_btn')}</button>
-            <button id="findBtn-${uniqueFileId}">${_('find_btn')}</button>
-            <vr></vr> 
-            <button style='width:25px' id="PBtn-${uniqueFileId}" onclick='document.getElementById("${uniqueFileId}").style.fontSize = parseFloat(window.getComputedStyle(document.getElementById("${uniqueFileId}")).getPropertyValue("font-size"))+5+"px";'>+</button>
-            <button style='width:25px' id="MBtn-${uniqueFileId}" onclick='document.getElementById("${uniqueFileId}").style.fontSize = (parseFloat(window.getComputedStyle(document.getElementById("${uniqueFileId}")).getPropertyValue("font-size")) > 5 ) ? parseFloat(window.getComputedStyle(document.getElementById("${uniqueFileId}")).getPropertyValue("font-size"))-5+"px": parseFloat(window.getComputedStyle(document.getElementById("${uniqueFileId}")).getPropertyValue("font-size"));' style="padding: 4px 8px; border: 1px solid #aaa; background-color: #ddd;">-</button>
-        <vr></vr>
-<button onclick="addRow('${uniqueFileId}')">
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-bar-down" viewBox="0 0 16 16">
-  <path fill-rule="evenodd" d="M1 3.5a.5.5 0 0 1 .5-.5h13a.5.5 0 0 1 0 1h-13a.5.5 0 0 1-.5-.5M8 6a.5.5 0 0 1 .5.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 0 1 .708-.708L7.5 12.293V6.5A.5.5 0 0 1 8 6"/>
-</svg>
-</button>
-<button onclick="addCol('${uniqueFileId}')">
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-bar-right" viewBox="0 0 16 16">
-  <path fill-rule="evenodd" d="M6 8a.5.5 0 0 0 .5.5h5.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L12.293 7.5H6.5A.5.5 0 0 0 6 8m-2.5 7a.5.5 0 0 1-.5-.5v-13a.5.5 0 0 1 1 0v13a.5.5 0 0 1-.5.5"/>
-</svg>
-</button>
-          </div>
-          <div style="flex: 1; overflow: auto; background-color: var(--bg-color); position: relative;">
-            ${tableHtml}
-          </div>
-        </div>`;
-
-      // Attach drag logic after DOM injection
-      setTimeout(() => { initFormulas(uniqueFileId); initAutoFill(uniqueFileId); }, 0);
-  } else if (fileType === "text/markdown" || fileType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-        isEditable = true;
-        fileWinBox.addClass("file-e");
-        document.execCommand('styleWithCSS', false, false);
-document.execCommand('defaultParagraphSeparator', false, 'p');
-
-
-    if (fileType == "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-            const options = {
-                styleMap: [
-                  "u => u", // Map Word underline explicitly to <u> tag
-                    "p[style-name='Center'] => center",
-                    "p[style-name='Right'] => p.right",
-                    "p[style-name='Left'] => p.left",
-                    // Явний мапінг для нумерованих та маркованих списків:
-                "p[style-name='List Paragraph'] => li",
-                "p[style-name='Bullet List'] => ul > li",
-                "p[style-name='Numbered List'] => ol > li"
-                ]
-            };
-if (content.byteLength > 0) {
-    const result = await mammoth.convertToHtml(
-        { arrayBuffer: content },
-        options
-    );
-    initialHtml = result.value;
-} else {
-    initialHtml = '';
-    console.log('NEW DOCX');
-}
-            
-        } else {
-            initialHtml = marked.parse(content);
-
-const temp = document.createElement('div');
-temp.innerHTML = initialHtml;
-
-temp.querySelectorAll('del').forEach(el => {
-    const s = document.createElement('s');
-    s.innerHTML = el.innerHTML;
-    el.replaceWith(s);
-});
-
-initialHtml = temp.innerHTML;
-        }
-
-        window.input = (text) => {
-    try{
-      wasSaved = false;
-      
-            const symLabel = fileWinBox.body.querySelector("#sym-"+uniqueFileId);
-            if (symLabel) symLabel.innerText = text.length+"sym";
-    }catch{}
-        }
-
-window.execAndCheck = function(id, cmd) {
-    const editor = document.getElementById(id);
-    if (!editor) return;
-
-    editor.focus();
-
-    if (cmd === 'insertOrderedList' || cmd === 'insertUnorderedList') {
-        const listTag = cmd === 'insertOrderedList' ? 'ol' : 'ul';
-
-        // If already inside this list, toggle it off.
-        const selection = window.getSelection();
-        let node = selection?.anchorNode;
-        if (node?.nodeType === Node.TEXT_NODE) node = node.parentElement;
-
-        const currentList = node?.parentElement?.closest('ul, ol')
-            || node?.closest?.('ul, ol');
-
-        if (currentList && currentList.tagName.toLowerCase() === listTag) {
-            document.execCommand(cmd, false, null);
-        } else {
-            document.execCommand(cmd, false, null);
-        }
-    } else {
-        document.execCommand(cmd, false, null);
-    }
-
-    updateToolbarState(id);
-};
-
-window.applyHeading = function(id, tagName) {
-    const editor = document.getElementById(id);
-    if (!editor) return;
-
-    editor.focus();
-
-    // Toggle the current heading off when the same heading is selected.
-    const selection = window.getSelection();
-    let node = selection?.anchorNode;
-    if (node?.nodeType === Node.TEXT_NODE) node = node.parentElement;
-
-    const currentBlock = node?.closest?.('h1, h2, h3, p');
-
-    if (currentBlock && currentBlock.tagName.toLowerCase() === tagName.toLowerCase()) {
-        document.execCommand('formatBlock', false, '<p>');
-    } else {
-        document.execCommand('formatBlock', false, `<${tagName}>`);
-    }
-
-    updateToolbarState(id);
-};
-
-// Check cursor position and apply .ok class to active buttons
-window.updateToolbarState = function(id) {
-    const editor = document.getElementById(id);
-    const container = document.getElementById(`toolbar-${id}`);
-    if (!editor || !container) return;
-
-    // 1. Check inline & list styles using queryCommandState
-    const cmdButtons = container.querySelectorAll('button[data-cmd]');
-    cmdButtons.forEach(btn => {
-        const cmd = btn.getAttribute('data-cmd');
-        try {
-            if (document.queryCommandState(cmd)) {
-                btn.classList.add('ok');
-            } else {
-                btn.classList.remove('ok');
-            }
-
-
-        } catch {
-            btn.classList.remove('ok');
-        }
-    });
-
-    // 2. Check Block Format (H1, H2, H3, P)
-    let blockVal = '';
-    try {
-        blockVal = (document.queryCommandValue('formatBlock') || '').toLowerCase();
-    } catch {}
-
-    ['h1', 'h2', 'h3', 'p'].forEach(tag => {
-        const btn = document.getElementById(`btn-${tag}-${id}`);
-        if (!btn) return;
-
-        if (blockVal.includes(tag)) {
-            btn.classList.add('ok');
-        } else {
-            btn.classList.remove('ok');
-        }
-    });
-};
-
-        newContent = `
-    <div style="background: #e0e0e0; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
-
-        <div class="toolbar" id="toolbar-${uniqueFileId}" style="position: sticky; top: 0; overflow-x: auto; z-index: 2;">
-            <button id="saveBtn-${uniqueFileId}">${_('save_btn')}</button>
-            <button id="printBtn-${uniqueFileId}">${_('print_btn')}</button>
-            <button id="findBtn-${uniqueFileId}">${_('find_btn')}</button>
-
-            <vr></vr>
-
-            <button data-cmd="bold" onclick="execAndCheck('${uniqueFileId}', 'bold')"><b>B</b></button>
-            <button data-cmd="italic" onclick="execAndCheck('${uniqueFileId}', 'italic')"><i>I</i></button>
-            <button data-cmd="underline" onclick="execAndCheck('${uniqueFileId}', 'underline')"><u>U</u></button>
-            <button data-cmd="strikeThrough" onclick="execAndCheck('${uniqueFileId}', 'strikethrough')"><strike>S</strike></button>
-            <vr></vr>
-            <button data-cmd="insertUnorderedList" onclick="execAndCheck('${uniqueFileId}', 'insertUnorderedList')">UL</button>
-            <button data-cmd="insertOrderedList" onclick="execAndCheck('${uniqueFileId}', 'insertOrderedList')">OL</button>
-            ${fileType !== "text/markdown" ? `
-            <vr></vr>
-            <button data-cmd="justifyLeft" onclick="execAndCheck('${uniqueFileId}', 'justifyLeft')">L</button>
-            <button data-cmd="justifyCenter" onclick="execAndCheck('${uniqueFileId}', 'justifyCenter')">C</button>
-            <button data-cmd="justifyRight" onclick="execAndCheck('${uniqueFileId}', 'justifyRight')">R</button>
-` : ''}
-            <vr></vr>
-            <button id="btn-h1-${uniqueFileId}" onclick="applyHeading('${uniqueFileId}', 'h1')">H1</button>
-            <button id="btn-h2-${uniqueFileId}" onclick="applyHeading('${uniqueFileId}', 'h2')">H2</button>
-            <button id="btn-h3-${uniqueFileId}" onclick="applyHeading('${uniqueFileId}', 'h3')">H3</button>
-            <button id="btn-p-${uniqueFileId}" onclick="applyHeading('${uniqueFileId}', 'p')">¶</button>
-        </div>
-
-        <div style="flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px 0; background:var(--bg-color)">
-            <div contenteditable="true"
-                 class='no-font'
-                 oninput='input(this.innerText)'
-                 id="${uniqueFileId}"
-                 style="margin: 0 auto;
-                        width: 500px;
-                        outline: none;
-                        background: white !important;
-                        color: black;
-                        white-space: normal;
-                        aspect-ratio: 210 / 297;
-                        box-sizing: border-box;
-                        box-shadow: 0 0 15px rgba(0,0,0,0.2);">${initialHtml}</div>
-        </div>
-
-        <div class="footer" style="justify-content: space-between; padding: 5px; margin: 0; border-top: 1px solid #ccc; font-size: 15px;">
-        <span>
-        
-            <span id="sym-${uniqueFileId}"></span>
-            <span id="scale-${uniqueFileId}"></span>
-        </span>
-            <input type="range"
-                   oninput='document.getElementById("${uniqueFileId}").style.width = this.value + "px"; document.getElementById("scale-${uniqueFileId}").innerText=document.getElementById("${uniqueFileId}").style.width;'
-                   min="200" max="1200" value="500" step="50"
-                   style="margin-right: 10px; cursor: pointer;" />
-        </div>
-
-    </div>
-`;
-
-
-
-setTimeout(() => {
-    const el = document.getElementById(uniqueFileId);
-    if (el) {
-        window.input(el.innerText);
-
-        // Update active toggles when selection changes or cursor moves
-        const handler = () => window.updateToolbarState(uniqueFileId);
-        
-        el.addEventListener('keyup', handler);
-        el.addEventListener('mouseup', handler);
-        el.addEventListener('click', handler);
-        
-        // Listen on document selection change for fine caret movements
-        document.addEventListener('selectionchange', () => {
-            if (document.activeElement === el) {
-                window.updateToolbarState(uniqueFileId);
-            }
-        });
-    }
-}, 10);
-    }else if (fileType.trim() == "application/xslt+xml"){
-                  isEditable = false;
-  const parser = new DOMParser();
-  const xslDoc = parser.parseFromString(content, "text/xml");
-
-  // 1. Check if the browser encountered an XML parsing error
-  const parseError = xslDoc.querySelector("parsererror");
-  if (parseError) {
-      console.error("XML/XSLT Syntax Error:", parseError.textContent);
-      // Handle the error gracefully here (e.g., alert the user or fallback)
-
-  }
-
-  const xmlDoc = parser.parseFromString('<?xml version="1.0" encoding="UTF-8"?><root/>', "text/xml");
-
-  const processor = new XSLTProcessor();
-  processor.importStylesheet(xslDoc);
-
-  const resultDoc = processor.transformToDocument(xmlDoc);
-
-  // 2. Make sure the transformation actually succeeded before serializing
-  if (!resultDoc) {
-      console.error("XSLT Transformation failed. Check if your stylesheet structural rules are valid.");
-
-  }
-
-  const serializer = new XMLSerializer();
-   newContent = serializer.serializeToString(resultDoc);
-                }else if (fileType.trim() == "application/vnd.cups-ppd"){
-                  isEditable = false;
-  const ppd = PPD.parse(content);
-
-
-
-window.onPrinterConnected({name:ppd.attributes.ModelName});
-fileWinBox.close();
-
-                }else if (fileType.trim() == "text/x-doldoc"){
-                  isEditable = false;
-newContent = dolDocToHtml(content);
-
-                } else if (fileType.startsWith("text/") || !exfile.name.split("/").pop().substring(1).includes(".")) {
-                 if (fileType == 'text/vnd.gml') {
-    isEditable = false;
-
-newContent = `
-    <canvas class="gml-canvas" style="
-        display: block;
-        width: 100%;
-        height: 100%;
-        flex: 1 1 auto;
-        min-width: 0;
-        min-height: 0;
-        box-sizing: border-box;
-        background-color: var(--bg-color);
-    "></canvas>
-`;
-
-// fileWinBox.addClass('no-max')
-
-fileWinBox.body.innerHTML = newContent;
-DO_NOT_REPLACE = true;
-
-
-
-    // Query within this window, not the whole document.
-    const canvas = fileWinBox.body.querySelector('.gml-canvas');
-    
-
-
-    // Wait until the browser has laid out the window.
-    requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-            try {
-                const parsed = parseGML(content);
-                const graph = parsed.graph || parsed;
-
-                const nodes = [].concat(graph.node || []);
-                const edges = [].concat(graph.edge || []);
-
-                if (nodes.length === 0) {
-                    throw new Error(
-                        'No nodes found. Check the GML structure and parser.'
-                    );
-                }
-
-                const ctx = canvas.getContext('2d');
-
-                
-function drawGraph(w=0,h=0) {
+function drawGraph(w=0,h=0, {edges:edges,nodes:nodes,graph:graph,canvas:canvas}={}) {
     const rect = canvas.getBoundingClientRect();
 
 
@@ -7644,28 +6461,1934 @@ if (h==0) h = rect.height;
     });
 
     return true;
+
 }
+
+    /**
+     * Відкриває файл у новому вікні WinBox.
+     * * @param {Event | File | string} source - Об'єкт події DOM, об'єкт File, або ім'я файлу (рядок).
+     * @param {function} refr - Функція оновлення (наприклад, null).
+     * @param {string} [type=null] - Примусовий MIME-тип (наприклад, "text/plain").
+     * @param {File} [file=null] - Об'єкт файлу, якщо 'source' є подією, але викликано з контекстного меню.
+     */
+    function Openf(type, file = null, allowOpenWith = true) {
+        let fileWinBox;
+        let fileType = "unknown";
+        let exfile = null;      // Found File object
+        let filestr = null;     // File name
+        let isEditable = false;
+        const uniqueFileId = "content-" + Date.now();
+
+
+
+
+        const fileOrName =
+            typeof file === "string" ? file.split("?")[0] : file;
+
+        if (typeof fileOrName === "string") {
+            filestr = fileOrName;
+            exfile = fs.find(f => f.name.trim() === filestr.trim());
+        } else if (fileOrName instanceof File) {
+            exfile = fileOrName;
+            filestr = exfile.name;
+        }
+
+        if (!exfile) {
+            console.error("File not found: " + fileOrName);
+            return;
+        }
+
+        fileType = type || exfile.type;
+
+        const ic = getIcon(exfile);
+
+        if (allowOpenWith) {
+            const nm = typeof file === "object" ? file.name : file;
+
+            if (getExt(exfile) && !nm.includes("?") && !nm.includes("=")) {
+                const config = FILE_TYPES[exfile.name.split(".").pop()];
+
+                if (config?.openWith && config.openWith !== "openf") {
+                    const app = apps.find(app => app.path === config.openWith);
+                    if (!app) return;
+
+                    Openf(
+                        getMimeType(app.path),
+                        `${app.path}?${app.openWithParam}=${exfile.name}`
+                    );
+                    return;
+                }
+            }
+        }
+
+          
+
+          const typeclass = fileType.split("/")[0];
+          let DO_NOT_REPLACE = false;
+  const minWidth = 255;
+  const minHeight = 200;
+
+  const width = Math.max(window.innerWidth * 0.30, minWidth);
+  const height = Math.max(window.innerHeight * 0.35, minHeight);
+
+const fndApp = apps.find(a=>a.path == exfile.name);
+
+if (fndApp  && type == 'text/html'){
+if (fndApp.launch_handler__client_mode){
+    let autoMode = 'navigate-new';
+    if (detectMobile()) autoMode = 'navigate-existing';
+        if (fndApp.launch_handler__client_mode == 'focus-existing' || fndApp.launch_handler__client_mode == 'navigate-existing' || (fndApp.launch_handler__client_mode == 'auto' && autoMode == 'navigate-existing')){
+            const fndRun0 = runningApps.find(a=>a.name == fndApp.name)
+            if (fndRun0){
+                fore(fndRun0.id);
+                return;
+        }
+            
+        }else if (fndApp.launch_handler__client_mode == 'navigate-new' || (fndApp.launch_handler__client_mode == 'auto' && autoMode == 'navigate-new')) {
+            // Continue
+            console.log('New PWA window created: '+fndApp.name)
+        }
+    }
+}
+
+  fileWinBox = new wm(filestr, {
+      icon: ic,
+      x: "center",
+      y: "center",
+      class: [wbtheme, typeclass, "hidden", 'loading', 'no-full'],
+      minwidth: minWidth,
+      minheight: minHeight,
+      width,
+      height,
+      html: `<div style="
+    color: var(--color-text-primary);
+    background-color: var(--bg-color);
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+    display: flex;
+    font-size: 20px;
+    align-items: center;
+    justify-content: center;
+">${_('loading')}</div>`
+  });
+
+  if (fndApp && type == 'text/html'){
+    if (fndApp.display){
+        if (fndApp.display == 'minimal-ui'){
+fileWinBox.addControl({
+    // the position index
+    index: 2,
+    // classname to apply styling
+    class: "wb-menu",
+    // icon url when not specified via classname
+    image: "",
+    // click listener
+    click: function(event, winbox){
+        // the winbox instance will be passed as 2nd parameter
+        alert(winbox.id);
+        
+    }
+});
+
+        }else if (fndApp.display == 'fullscreen'){
+            fileWinBox.removeClass('no-full');
+            fileWinBox.addClass('allow-full')
+fileWinBox.fullscreen(1);
+        }
+    }
+  }
+
+        const reader = new FileReader();
+
+        reader.onload = async function(e) {
+            const content = e.target.result;
+            let newContent = '';
+            let wasSaved = true; // For those types, which aren't editable, or saveable.
+
+
+      
+
+            
+            if (fileType == "application/x-theme" || fileType == 'application/x-kde-palette') {
+    localStorage.setItem("theme", exfile.name);
+    
+            const parser = new ThemeParser();
+            const thm = parser.parse(content, exfile.name); 
+    await parser.applyTheme(thm.styles)
+    await applyThemeToUI(thm.name)
+
+    fileWinBox.close();
+            }
+                
+            
+    if (fileType.startsWith("font/") || fileType === "application/x-font-ttf" || fileType === "application/font-woff") {
+      isEditable = false;
+        const fontName = exfile.name;
+        
+        // 2. Map the fileType to the proper CSS format() string
+        let cssFormat = "";
+        if (fileType.includes("woff2")) {
+            cssFormat = 'format("woff2")';
+        } else if (fileType.includes("woff")) {
+            cssFormat = 'format("woff")';
+        } else if (fileType.includes("ttf") || fileType.includes("truetype")) {
+            cssFormat = 'format("truetype")';
+        } else if (fileType.includes("otf") || fileType.includes("opentype")) {
+            cssFormat = 'format("opentype")';
+        }
+
+        newContent = `
+        <style>
+            @font-face {
+                font-family: '${uniqueFileId}';
+                /* Added the dynamic format hint here */
+                src: url(${e.target.result}) ${cssFormat};
+            }
+            .preview-container-${uniqueFileId} { 
+                font-family: '${uniqueFileId}', serif !important; 
+                padding: 15px;
+            }
+        </style>
+
+        <div class="toolbar">
+            <button onclick="updateFonts('add', '${fontName}')">${_('add')}</button>
+            <button onclick="updateFonts('delete', '${fontName}')">${_('delete_btn')}</button>
+            <button onclick="updateFonts('set', '${fontName}')">${_('apply')}</button>
+        </div>
+
+        <div class="no-font preview-container-${uniqueFileId}">
+            <h2>Lorem Ipsum</h2>
+            <p>"Neque porro quisquam est qui dolorem ipsum..."</p>
+            <small>"There is no one who loves pain itself..."</small>
+            <h2>1234567890</h2>
+            <pre>@ # $ _ & - + () / * " ' : ; ! ?</pre>
+        </div>
+        `;
+    }  else if (fileType === 'application/wasm') {
+            isEditable = false;
+            
+            // 1. Inject the canvas element directly using your window's element property
+            newContent = `
+                <canvas id='wasmcanvas' width='640' height='480' style='width:100%; height:100%; display:block;'></canvas>
+            `;
+
+            fileWinBox.body.innerHTML = newContent;
+            DO_NOT_REPLACE = true;
+
+
+            requestAnimationFrame(async()=>{const e=document.getElementById("wasmcanvas");if(!e)return console.error("Wasm canvas target could not be resolved.");const t=e.getContext("2d");try{const n=await WebAssembly.compile(content),o=WebAssembly.Module.imports(n),a={},r={env:{print:e=>console.log(e),random:()=>Math.random(),now:()=>performance.now(),abort:e=>{console.error(`WASM aborted (${e})`)},memory:new WebAssembly.Memory({initial:16,maximum:256}),table:new WebAssembly.Table({initial:0,element:"anyfunc"})}};o.forEach(e=>{a[e.module]||(a[e.module]={}),e.kind==="function"?a[e.module][e.name]=r[e.module]&&typeof r[e.module][e.name]=="function"?r[e.module][e.name]:(...t)=>console.warn(`[Wasm Missing Import Stub -> ${e.module}.${e.name} called with]:`,t):e.kind==="global"?a[e.module][e.name]=new WebAssembly.Global({value:"i32",mutable:!0},0):e.kind==="memory"?a[e.module][e.name]=new WebAssembly.Memory({initial:1}):e.kind==="table"&&(a[e.module][e.name]=new WebAssembly.Table({initial:0,element:"anyfunc"}))});const{instance:i,module:s}=await WebAssembly.instantiate(content,a),l=WebAssembly.Module.exports(s),c=l.find(e=>e.kind==="memory"),d=l.find(e=>e.kind==="function"&&["pointer","buffer","screen","output","mem"].some(t=>e.name.includes(t))),u=c?i.exports[c.name].buffer:i.exports.memory?.buffer||null,f=l.find(e=>e.kind==="function"&&["tick","render","generate","update","main","run","draw"].some(t=>e.name.includes(t))),m=l.filter(e=>e.kind==="function"),p=d?i.exports[d.name]:m.length>1?i.exports[m[0].name]:()=>0,h=f?i.exports[f.name]:m.length>1?i.exports[m[1].name]:i.exports[m[0].name];if(!h){console.error("Could not automatically map lifecycle functions from Wasm export metadata.");return}const g=u&&typeof h=="function"&&typeof p=="function";let y=0,v=!1;if(g)try{y=p(),v=Number.isInteger(y)&&y>=0}catch(e){v=!1}Object.entries(i.exports).forEach(([e,t])=>{typeof t=="function"&&(window.wasm[e]=t)});const b=JSON.parse(localStorage.getItem("autoload"))||[];b.includes(exfile.name)||console.log('ADDED (window.wasm):\n'+Object.keys(i.exports).join(", "));if(!v){fileWinBox.close();return}const w=e.width*e.height*4,E=u.byteLength-y;let M;if(E<w){console.warn(`Wasm memory buffer (${u.byteLength} bytes) is smaller than requested canvas layout (${w} bytes). Auto-scaling resolution down.`);try{M=new Uint8ClampedArray(u,y,Math.floor(E/4)*4)}catch(e){console.error("Wasm memory is insufficient to populate a standard graphical canvas frame context.");return}}else M=new Uint8ClampedArray(u,y,w);p();console.log("WASM getPointer: "+p.name);console.log("WASM renderFrameFn: "+h.name);function R(){h();const t=e.width*e.height*4;if(u.byteLength-y<t)return void requestAnimationFrame(R);const n=new Uint8ClampedArray(u,y,t);t&&ctx.putImageData(new ImageData(n,e.width,e.height),0,0),requestAnimationFrame(R)}R(),console.log(`Successfully parsed and loaded [${exfile.name}].`)}catch(e){console.error("Wasm runtime crashed during dynamic initialization:",e)}})
+        }
+    else if (fileType === "text/csv" ||  fileType === "text/tab-separated-values" || fileType == 'application/vnd.oasis.opendocument.spreadsheet') {
+      isEditable = true;
+
+
+
+window.sheetToFods = function (tableId, computed = false) {
+    const table = document.getElementById(tableId);
+
+    if (!table) throw new Error('Table not found: ' + tableId);
+
+    const NS = {
+        office: 'urn:oasis:names:tc:opendocument:xmlns:office:1.0',
+        table: 'urn:oasis:names:tc:opendocument:xmlns:table:1.0',
+        text: 'urn:oasis:names:tc:opendocument:xmlns:text:1.0'
+    };
+
+    const esc = v => String(v).replace(/[&<>"']/g, ch => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&apos;'
+    })[ch]);
+
+    const grid = [...table.querySelectorAll('tbody tr')].map(tr =>
+        [...tr.querySelectorAll('td')].map(td =>
+            computed ? td.innerText.trim() : table.sheet.getRaw(td)
+        )
+    );
+
+    // Drop only leading rows where every cell is empty.
+    while (grid.length && grid[0].every(v => v === '')) {
+        grid.shift();
+    }
+
+const cell = value => {
+    if (value === null || value === undefined || value === '') {
+        return '<table:table-cell/>';
+    }
+
+    if (!computed && typeof value === 'string' && value.startsWith('=')) {
+        const formula = 'of:=' + value.slice(1);
+
+        return `<table:table-cell
+            table:formula="${esc(formula)}"
+            office:value-type="string">
+            <text:p/>
+        </table:table-cell>`;
+    }
+
+    if (typeof value === 'boolean') {
+        return `<table:table-cell
+            office:value-type="boolean"
+            office:boolean-value="${value}">
+            <text:p>${value}</text:p>
+        </table:table-cell>`;
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return `<table:table-cell
+            office:value-type="float"
+            office:value="${value}">
+            <text:p>${value}</text:p>
+        </table:table-cell>`;
+    }
+
+    const str = String(value);
+
+    return `<table:table-cell office:value-type="string">
+        <text:p>${esc(str).replace(/\n/g, '</text:p><text:p>')}</text:p>
+    </table:table-cell>`;
+};
+
+    const rows = grid.map(row =>
+        '<table:table-row>' +
+        row.map(cell).join('') +
+        '</table:table-row>'
+    ).join('\n');
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<office:document
+    xmlns:office="${NS.office}"
+    xmlns:table="${NS.table}"
+    xmlns:text="${NS.text}"
+    office:version="1.3"
+    office:mimetype="application/vnd.oasis.opendocument.spreadsheet">
+    <office:body>
+        <office:spreadsheet>
+            <table:table table:name="Sheet1">
+                ${rows}
+            </table:table>
+        </office:spreadsheet>
+    </office:body>
+</office:document>`;
+};
+
+
+window.sheetToTsv = function (tableId, computed = false) {
+    const table = document.getElementById(tableId);
+    const Q = v => /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    const grid = [...table.querySelectorAll('tbody tr')].map(tr =>
+        [...tr.querySelectorAll('td')].map(td =>
+            computed ? td.innerText.trim() : table.sheet.getRaw(td)));
+
+    // drop only leading rows where every cell is empty
+    while (grid.length && grid[0].every(v => v === '')) grid.shift();
+
+    return grid.map(r => r.map(Q).join('\t')).join('\n');
+};
+
+window.sheetToCsv = function (tableId, computed = false) {
+    const table = document.getElementById(tableId);
+    const Q = v => /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    const grid = [...table.querySelectorAll('tbody tr')].map(tr =>
+        [...tr.querySelectorAll('td')].map(td =>
+            computed ? td.innerText.trim() : table.sheet.getRaw(td)));
+
+    // drop only leading rows where every cell is empty
+    while (grid.length && grid[0].every(v => v === '')) grid.shift();
+
+    return grid.map(r => r.map(Q).join(',')).join('\n');
+};
+
+
+const initFormulas = (tableId, toolbarId) => {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    // ---------- cell helpers ----------
+    const colIndex = s => s.toUpperCase().split('').reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0) - 1;
+    const colName = n => {
+        let s = ''; n++;
+        while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
+        return s;
+    };
+    const cellAt = (r, c) => table.querySelector(`td[data-row="${r}"][data-col="${c}"]`);
+    const refName = td => colName(+td.dataset.col) + (+td.dataset.row + 1);
+    const CELL = /^[A-Za-z]+\d+$/;
+    const find = name => {
+        const m = /^([A-Za-z]+)(\d+)$/.exec(name);
+        return m ? cellAt(m[2] - 1, colIndex(m[1])) : null;
+    };
+    const getRaw = td => td.dataset.raw !== undefined
+        ? td.dataset.raw
+        : td.innerText.replace(/\n$/, '').trim();
+    const setRaw = (td, v) => { td.dataset.raw = v; td.innerText = v; };
+
+    // ---------- value coercion ----------
+    const num = v => {
+        if (Array.isArray(v)) throw new Error('range in scalar context');
+        if (v === '' || v == null) return 0;
+        if (typeof v === 'boolean') return +v;
+        const n = Number(v);
+        if (Number.isNaN(n)) throw new Error('not a number');
+        return n;
+    };
+    const scalar = v => { if (Array.isArray(v)) throw new Error('range in scalar context'); return v; };
+    const str = v => String(scalar(v));
+    const nums = args => args.flat(Infinity).filter(v => typeof v === 'number');
+    const eq = (a, b) => {
+        a = scalar(a); b = scalar(b);
+        return typeof a === 'string' && typeof b === 'string'
+            ? a.toLowerCase() === b.toLowerCase()
+            : a === b;
+    };
+    const lt = (a, b) => {
+        a = scalar(a); b = scalar(b);
+        return typeof a === 'number' && typeof b === 'number' ? a < b : String(a) < String(b);
+    };
+
+    // ---------- whitelists ----------
+        // ---------- whitelists ----------
+    const FUNCS = {
+        SUM:     (...a) => nums(a).reduce((x, y) => x + y, 0),
+        AVERAGE: (...a) => { const n = nums(a); return n.length ? n.reduce((x, y) => x + y, 0) / n.length : 0; },
+        MIN:     (...a) => { const n = nums(a); return n.length ? Math.min(...n) : 0; },
+        MAX:     (...a) => { const n = nums(a); return n.length ? Math.max(...n) : 0; },
+        COUNT:   (...a) => nums(a).length,
+        ABS:     x => Math.abs(num(x)),
+        ROUND:   (x, d = 0) => { const m = 10 ** num(d); return Math.round(num(x) * m) / m; },
+        FLOOR:   x => Math.floor(num(x)),
+        CEIL:    x => Math.ceil(num(x)),
+        SQRT:    x => Math.sqrt(num(x)),
+        POW:     (x, y) => Math.pow(num(x), num(y)),
+        LEN:     x => str(x).length,
+        UPPER:   x => str(x).toUpperCase(),
+        LOWER:   x => str(x).toLowerCase(),
+        CONCAT:  (...a) => a.flat(Infinity).map(String).join(''),
+        AND:     (...a) => a.flat(Infinity).every(Boolean),
+        OR:      (...a) => a.flat(Infinity).some(Boolean),
+        NOT:     x => !scalar(x),
+        VALUE:   x => parseFloat(x)
+    };
+
+    
+const matcher = (crit) => {
+    if (typeof crit === 'string') {
+        const m = crit.match(/^(>=|<=|<>|>|<|=)?(.*)$/);
+        const op = m[1] || '=', rhs = m[2];
+        const rn = Number(rhs), isNum = rhs.trim() !== '' && !isNaN(rn);
+        return v => {
+            const a = isNum ? (typeof v === 'number' ? v : NaN) : String(v).toLowerCase();
+            const b = isNum ? rn : rhs.toLowerCase();
+            switch (op) {
+                case '>':  return a > b;
+                case '<':  return a < b;
+                case '>=': return a >= b;
+                case '<=': return a <= b;
+                case '<>': return a !== b;
+                default:   return a === b;
+            }
+        };
+    }
+    return v => v === crit;
+};
+const flat = r => [r].flat(Infinity);
+const fail = m => { throw new Error(m); };
+const dt = d => { const x = new Date(str(d)); if (isNaN(x)) fail('bad date'); return x; };
+
+Object.assign(FUNCS, {
+    // ---- Math ----
+    PRODUCT:  (...a) => nums(a).reduce((x, y) => x * y, 1),
+    INT:      x => Math.floor(num(x)),
+    TRUNC:    (x, d = 0) => { const m = 10 ** num(d); return Math.trunc(num(x) * m) / m; },
+    SIGN:     x => Math.sign(num(x)),
+    EXP:      x => Math.exp(num(x)),
+    LN:       x => Math.log(num(x)),
+    LOG:      (x, b = 10) => Math.log(num(x)) / Math.log(num(b)),
+    LOG10:    x => Math.log10(num(x)),
+    RAND:     () => Math.random(),
+    RANDBETWEEN: (a, b) => Math.floor(num(a) + Math.random() * (num(b) - num(a) + 1)),
+    MROUND:   (x, m) => Math.round(num(x) / num(m)) * num(m),
+    GCD:      (...a) => nums(a).reduce((x, y) => { while (y) [x, y] = [y, x % y]; return Math.abs(x); }),
+    LCM:      (...a) => nums(a).reduce((x, y) => {
+                  const g = (p, q) => q ? g(q, p % q) : p; return Math.abs(x * y) / g(x, y); }),
+    FACT:     x => { x = num(x); if (x < 0 || x > 170) fail('range'); let r = 1; for (let i = 2; i <= x; i++) r *= i; return r; },
+    SIN: x => Math.sin(num(x)), COS: x => Math.cos(num(x)), TAN: x => Math.tan(num(x)),
+    RADIANS:  x => num(x) * Math.PI / 180,
+    DEGREES:  x => num(x) * 180 / Math.PI,
+    MOD:      (x, y) => { x = num(x); y = num(y); if (y === 0) fail('div0'); return x - y * Math.floor(x / y); },
+    POWER:    (x, y) => Math.pow(num(x), num(y)),
+    CEILING:  x => Math.ceil(num(x)),
+
+    // ---- Statistics ----
+    COUNTA:   (...a) => a.flat(Infinity).filter(v => v !== '' && v != null).length,
+    COUNTBLANK: (...a) => a.flat(Infinity).filter(v => v === '' || v == null).length,
+    MEDIAN:   (...a) => { const n = nums(a).sort((x, y) => x - y), m = n.length >> 1;
+                  return !n.length ? 0 : n.length % 2 ? n[m] : (n[m - 1] + n[m]) / 2; },
+    MODE:     (...a) => { const c = new Map(); let best = 0, r = 0;
+                  nums(a).forEach(v => { const k = (c.get(v) || 0) + 1; c.set(v, k); if (k > best) { best = k; r = v; } });
+                  return r; },
+    LARGE:    (r, k) => { const v = nums([r]).sort((x, y) => y - x)[num(k) - 1]; return v ?? fail('range'); },
+    SMALL:    (r, k) => { const v = nums([r]).sort((x, y) => x - y)[num(k) - 1]; return v ?? fail('range'); },
+    VAR:      (...a) => { const n = nums(a); if (n.length < 2) fail('div0');
+                  const m = n.reduce((x, y) => x + y, 0) / n.length;
+                  return n.reduce((s, v) => s + (v - m) ** 2, 0) / (n.length - 1); },
+    STDEV:    (...a) => Math.sqrt(FUNCS.VAR(...a)),
+    SUMSQ:    (...a) => nums(a).reduce((s, v) => s + v * v, 0),
+
+    // ---- Conditional aggregation ----
+    COUNTIF:  (r, c) => flat(r).filter(matcher(scalar(c))).length,
+    SUMIF:    (r, c, s) => {
+                  const test = matcher(scalar(c)), R = flat(r), S = s ? flat(s) : R;
+                  return R.reduce((t, v, i) => test(v) && typeof S[i] === 'number' ? t + S[i] : t, 0); },
+    AVERAGEIF: (r, c, s) => {
+                  const test = matcher(scalar(c)), R = flat(r), S = s ? flat(s) : R;
+                  const hits = R.map((v, i) => test(v) ? S[i] : null).filter(v => typeof v === 'number');
+                  return hits.length ? hits.reduce((x, y) => x + y, 0) / hits.length : fail('div0'); },
+
+    // ---- Text ----
+    LEFT:     (x, n = 1) => str(x).slice(0, num(n)),
+    RIGHT:    (x, n = 1) => num(n) ? str(x).slice(-num(n)) : '',
+    MID:      (x, s, n) => str(x).substr(num(s) - 1, num(n)),
+    TRIM:     x => str(x).trim().replace(/\s+/g, ' '),
+    PROPER:   x => str(x).toLowerCase().replace(/\b\p{L}/gu, c => c.toUpperCase()),
+    SUBSTITUTE: (x, a, b) => str(x).split(str(a)).join(str(b)),
+    REPLACE:  (x, s, n, t) => str(x).slice(0, num(s) - 1) + str(t) + str(x).slice(num(s) - 1 + num(n)),
+    FIND:     (a, b, s = 1) => { const i = str(b).indexOf(str(a), num(s) - 1); return i < 0 ? fail('not found') : i + 1; },
+    SEARCH:   (a, b, s = 1) => { const i = str(b).toLowerCase().indexOf(str(a).toLowerCase(), num(s) - 1);
+                  return i < 0 ? fail('not found') : i + 1; },
+    REPT:     (x, n) => { n = num(n); if (n < 0 || n * str(x).length > 100000) fail('too long'); return str(x).repeat(n); },
+    EXACT:    (a, b) => str(a) === str(b),
+    TEXTJOIN: (d, skip, ...a) => a.flat(Infinity).filter(v => !skip || (v !== '' && v != null)).join(str(d)),
+    CHAR:     x => String.fromCharCode(num(x)),
+    CODE:     x => str(x).charCodeAt(0),
+    TEXT:     (x, f) => { f = str(f);
+                  return /^0\.0+$/.test(f) ? num(x).toFixed(f.length - 2)
+                       : /^0%$/.test(f) ? (num(x) * 100).toFixed(0) + '%'
+                       : /^0\.0+%$/.test(f) ? (num(x) * 100).toFixed(f.length - 3) + '%'
+                       : str(x); },
+
+    // ---- Logic / info ----
+    ISNUMBER: x => typeof scalar(x) === 'number',
+    ISTEXT:   x => typeof scalar(x) === 'string' && x !== '',
+    ISBLANK:  x => scalar(x) === '' || x == null,
+    ISEVEN:   x => Math.abs(num(x)) % 2 === 0,
+    ISODD:    x => Math.abs(num(x)) % 2 === 1,
+    XOR:      (...a) => a.flat(Infinity).filter(Boolean).length % 2 === 1,
+
+    // ---- Lookup (ranges carry .rows / .cols from rangeValues) ----
+    VLOOKUP:  (v, tbl, col) => {
+                  const w = tbl.cols || 1, c = num(col) - 1;
+                  if (c < 0 || c >= w) fail('bad column');
+                  for (let i = 0; i < tbl.length; i += w)
+                      if (eq(tbl[i], scalar(v))) return tbl[i + c];
+                  return fail('#N/A'); },
+    INDEX:    (r, row, col = 1) => {
+                  const w = r.cols || 1, i = (num(row) - 1) * w + (num(col) - 1);
+                  return num(col) > w || i < 0 || i >= r.length ? fail('bad index') : r[i]; },
+    MATCH:    (v, r) => { const i = flat(r).findIndex(x => eq(x, scalar(v))); return i < 0 ? fail('#N/A') : i + 1; },
+    CHOOSE:   (i, ...a) => a[num(i) - 1] ?? fail('bad index'),
+
+    // ---- Date/time (UTC, ISO strings) ----
+    TODAY:    () => new Date().toISOString().slice(0, 10),
+    NOW:      () => new Date().toISOString().slice(0, 19).replace('T', ' '),
+    DATE:     (y, m, d) => new Date(Date.UTC(num(y), num(m) - 1, num(d))).toISOString().slice(0, 10),
+    YEAR:     d => dt(d).getUTCFullYear(),
+    MONTH:    d => dt(d).getUTCMonth() + 1,
+    DAY:      d => dt(d).getUTCDate(),
+    WEEKDAY:  d => dt(d).getUTCDay() + 1,
+    DAYS:     (end, start) => Math.round((dt(end) - dt(start)) / 864e5),
+    DATEDIF:  (a, b, u = 'D') => {
+                  const x = dt(a), y = dt(b); u = str(u).toUpperCase();
+                  if (u === 'D') return Math.floor((y - x) / 864e5);
+                  const months = (y.getUTCFullYear() - x.getUTCFullYear()) * 12 + y.getUTCMonth() - x.getUTCMonth()
+                      - (y.getUTCDate() < x.getUTCDate() ? 1 : 0);
+                  return u === 'M' ? months : u === 'Y' ? Math.floor(months / 12) : fail('bad unit'); }
+});
+    // IF is handled in the parser so only the chosen branch is evaluated
+    const CONSTS = { PI: Math.PI, E: Math.E, TRUE: true, FALSE: false };
+
+    // Text shown next to each suggestion in the datalist
+
+const SUGGEST = [
+    ...[...Object.keys(FUNCS), 'IF', 'IFERROR'].sort().map(name => ({ name})),
+    ...Object.keys(CONSTS).map(name => ({ name}))
+];
+
+
+
+    const BIN = {
+        '+':  (a, b) => num(a) + num(b),
+        '-':  (a, b) => num(a) - num(b),
+        '*':  (a, b) => num(a) * num(b),
+        '/':  (a, b) => { const d = num(b); if (d === 0) throw new Error('div0'); return num(a) / d; },
+        '%':  (a, b) => num(a) % num(b),
+        '&':  (a, b) => str(a) + str(b),
+        '=':  eq,
+        '==': eq,
+        '!=': (a, b) => !eq(a, b),
+        '<>': (a, b) => !eq(a, b),
+        '<':  lt,
+        '>':  (a, b) => lt(b, a),
+        '<=': (a, b) => !lt(b, a),
+        '>=': (a, b) => !lt(a, b),
+        '&&': (a, b) => !!scalar(a) && !!scalar(b),
+        '||': (a, b) => !!scalar(a) || !!scalar(b)
+    };
+
+    // ---------- tokenizer ----------
+    const TOKEN = /\s*(?:(\d+\.?\d*(?:[eE][+-]?\d+)?|\.\d+)|"((?:[^"]|"")*)"|'((?:[^']|'')*)'|([A-Za-z_][A-Za-z0-9_]*)|(<=|>=|<>|==|!=|&&|\|\||[-+*\/%^&(),:<>=!]))/y;
+    const tokenize = src => {
+        src = src.trim();
+        const out = [];
+        TOKEN.lastIndex = 0;
+        while (TOKEN.lastIndex < src.length) {
+            const m = TOKEN.exec(src);
+            if (!m) throw new Error('bad token');
+            if (m[1] !== undefined) out.push({ t: 'num', v: Number(m[1]) });
+            else if (m[2] !== undefined) out.push({ t: 'str', v: m[2].replace(/""/g, '"') });
+            else if (m[3] !== undefined) out.push({ t: 'str', v: m[3].replace(/''/g, "'") });
+            else if (m[4] !== undefined) out.push({ t: 'id', v: m[4] });
+            else out.push({ t: 'op', v: m[5] });
+        }
+        return out;
+    };
+
+    // ---------- parser: formula text -> closure ----------
+    const compile = src => {
+        const toks = tokenize(src);
+        let p = 0;
+        const isOp = (...ops) => p < toks.length && toks[p].t === 'op' && ops.includes(toks[p].v);
+        const eat = v => { if (!isOp(v)) throw new Error('expected ' + v); p++; };
+
+        const primary = () => {
+            const tk = toks[p++];
+            if (!tk) throw new Error('unexpected end');
+            if (tk.t === 'num' || tk.t === 'str') { const v = tk.v; return () => v; }
+            if (tk.t === 'op') {
+                if (tk.v !== '(') throw new Error('unexpected ' + tk.v);
+                const e = expr();
+                eat(')');
+                return e;
+            }
+            const up = tk.v.toUpperCase();
+
+            if (isOp('(')) {
+                p++;
+                const args = [];
+                if (!isOp(')')) {
+                    args.push(expr());
+                    while (isOp(',')) { p++; args.push(expr()); }
+                }
+                eat(')');
+                if (up === 'IF') {
+                    if (args.length < 2 || args.length > 3) throw new Error('IF args');
+                    return () => scalar(args[0]())
+                        ? args[1]()
+                        : (args[2] ? args[2]() : false);
+                }
+                if (up === 'IFERROR') {
+    if (args.length !== 2) throw new Error('IFERROR args');
+    return () => { try { return scalar(args[0]()); } catch (e) { return args[1](); } };
+}
+                if (!Object.hasOwn(FUNCS, up)) throw new Error('unknown function');
+                const fn = FUNCS[up];
+                return () => fn(...args.map(a => a()));
+            }
+            if (CELL.test(tk.v)) {
+                if (isOp(':')) {
+                    p++;
+                    const t2 = toks[p++];
+                    if (!t2 || t2.t !== 'id' || !CELL.test(t2.v)) throw new Error('bad range');
+                    const a = tk.v, b = t2.v;
+                    return () => rangeValues(a, b);
+                }
+                const name = tk.v;
+                return () => cellValue(name);
+            }
+            if (Object.hasOwn(CONSTS, up)) { const v = CONSTS[up]; return () => v; }
+            throw new Error('unknown name');
+        };
+
+        const unary = () => {
+            if (isOp('-', '+', '!')) {
+                const op = toks[p++].v, o = unary();
+                return () => op === '-' ? -num(o()) : op === '+' ? num(o()) : !scalar(o());
+            }
+            return primary();
+        };
+
+        const pow = () => {
+            const base = unary();
+            if (isOp('^')) {
+                p++;
+                const exp = pow();
+                return () => Math.pow(num(base()), num(exp()));
+            }
+            return base;
+        };
+
+        const level = (sub, ops) => () => {
+            let left = sub();
+            while (isOp(...ops)) {
+                const op = toks[p++].v, right = sub(), l = left;
+                left = () => BIN[op](l(), right());
+            }
+            return left;
+        };
+
+        const mul    = level(pow,    ['*', '/', '%']);
+        const add    = level(mul,    ['+', '-']);
+        const concat = level(add,    ['&']);
+        const cmp    = level(concat, ['<', '>', '<=', '>=', '=', '==', '!=', '<>']);
+        const and    = level(cmp,    ['&&']);
+        const or     = level(and,    ['||']);
+        const expr   = or;
+
+        const root = expr();
+        if (p < toks.length) throw new Error('unexpected token');
+        return root;
+    };
+
+    // ---------- evaluation ----------
+    const evaluating = new Set();
+    const cache = new Map();
+
+    const cellValue = name => {
+        const td = find(name);
+        if (!td) throw new Error('bad ref');
+        return valueOf(td);
+    };
+    const rangeValues = (a, b) => {
+        const A = find(a), B = find(b);
+        if (!A || !B) throw new Error('bad ref');
+        const r1 = Math.min(+A.dataset.row, +B.dataset.row), r2 = Math.max(+A.dataset.row, +B.dataset.row);
+        const c1 = Math.min(+A.dataset.col, +B.dataset.col), c2 = Math.max(+A.dataset.col, +B.dataset.col);
+        if ((r2 - r1 + 1) * (c2 - c1 + 1) > 10000) throw new Error('range too large');
+        const out = [];
+        for (let r = r1; r <= r2; r++)
+            for (let c = c1; c <= c2; c++) {
+                const td = cellAt(r, c);
+                if (td) out.push(valueOf(td));
+            }
+        out.rows = r2 - r1 + 1;
+out.cols = c2 - c1 + 1;
+return out;
+    };
+
+    const valueOf = td => {
+        const raw = getRaw(td);
+        if (raw.charAt(0) !== '=' || raw === '=') {
+    const n = Number(raw);
+    return raw.trim() !== '' && !isNaN(n) ? n : raw;
+}
+        if (evaluating.has(td)) throw new Error('circular');
+        evaluating.add(td);
+        try {
+            const f = raw.slice(1);
+            let fn = cache.get(f);
+            if (!fn) {
+                if (cache.size > 500) cache.clear();
+                fn = compile(f);
+                cache.set(f, fn);
+            }
+            return scalar(fn());
+        } finally { evaluating.delete(td); }
+    };
+
+    const refresh = () => {
+        table.querySelectorAll('td[data-row]').forEach(td => {
+            const raw = getRaw(td);
+            if (raw.charAt(0) !== '=' || raw === '=') return;
+            let out;
+            try {
+                out = valueOf(td);
+                if (typeof out === 'number' && !Number.isFinite(out)) out = Number.isNaN(out) ? '#NAN' : '#INF';
+                else if (typeof out === 'boolean') out = out ? 'TRUE' : 'FALSE';
+            } catch (e) { out = '#ERR'; }
+            if (out == null) out = '';
+            if (td.innerText !== String(out)) td.innerText = out;
+        });
+    };
+
+    // ---------- formula input ----------
+    const listId = tableId + '-fn-list';
+    const dl = document.createElement('datalist');
+    dl.id = listId;
+
+    const fx = document.getElementById('form-bar-'+uniqueFileId);
+    fx.setAttribute('list', listId);
+   
+
+document.getElementById(toolbarId).prepend(dl)
+
+
+    // Suggestions are rebuilt on every keystroke so each option's value is
+    // "<text typed so far, minus the word being typed><FUNCTION>(".
+    // The browser's own datalist filter then matches them, and picking one
+    // replaces only the last word, even in the middle of a formula.
+const updateHints = () => {
+    dl.textContent = '';
+    const v = fx.value;
+    if (v.charAt(0) !== '=') return;
+    const m = /[A-Za-z_][A-Za-z0-9_]*$/.exec(v);
+    const word = m ? m[0].toUpperCase() : '';
+    const head = m ? v.slice(0, m.index) : v;
+    for (const s of SUGGEST) {
+        if (!s.name.startsWith(word)) continue;
+        const o = document.createElement('option');
+        o.value = head + s.name + (s.fn ? '(' : '');
+        dl.appendChild(o);
+    }
+};
+
+    // ---------- selection ----------
+    let sel = null;
+
+const select = td => {
+    if (sel) sel.style.outline = '';
+    sel = td;
+
+    fx.disabled = false;
+    fx.value = getRaw(td);
+    dl.textContent = '';
+};
+    const focusCell = td => { select(td); td.focus({ preventScroll: false }); };
+
+    const commit = () => {
+        if (!sel) return;
+        if (fx.value !== getRaw(sel)) setRaw(sel, fx.value);
+        refresh();
+    };
+    const move = (dr, dc) => {
+        if (!sel) return;
+        const next = cellAt(+sel.dataset.row + dr, +sel.dataset.col + dc);
+        if (next) focusCell(next);
+    };
+
+    // ---------- events ----------
+    fx.addEventListener('input', updateHints);
+    fx.addEventListener('blur', () => { commit(); dl.textContent = ''; });
+    fx.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            commit();
+            const r = +sel.dataset.row, c = +sel.dataset.col;
+            focusCell(cellAt(r + 1, c) || sel);
+        } else if (e.key === 'Escape') {
+            fx.value = getRaw(sel);
+            dl.textContent = '';
+            sel.focus();
+        }
+    });
+
+    table.addEventListener('mousedown', e => {
+        const td = e.target.closest('td[data-row]');
+        if (!td) return;
+        // While writing a formula, clicking a cell inserts its reference
+        if (document.activeElement === fx && /^=(?:.*[-+*\/^&<>=(,:%!|])?$/.test(fx.value)) {
+            e.preventDefault();
+            fx.value += refName(td);
+            updateHints();
+            return;
+        }
+        commit();
+        select(td);
+    });
+
+    table.addEventListener('keydown', e => {
+        const td = e.target.closest && e.target.closest('td[data-row]');
+        if (!td || e.target === fx) return;
+        if (td !== sel) select(td);
+        const arrows = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
+        if (arrows[e.key]) { e.preventDefault(); move(...arrows[e.key]); }
+        else if (e.key === 'Enter' || e.key === 'F2') { e.preventDefault(); fx.focus(); fx.select(); }
+        else if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); setRaw(sel, ''); fx.value = ''; refresh(); }
+        else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            fx.focus();           // the typed character lands in the formula bar
+            fx.value = '';
+        }
+    });
+
+    // ---------- init ----------
+    table.querySelectorAll('td[data-row]').forEach(td => {
+        td.contentEditable = 'false';      // no direct typing in cells anymore
+        td.tabIndex = 0;
+        td.dataset.raw = td.textContent.trim();
+    });
+    table.sheet = { getRaw, setRaw, refresh, select };
+    refresh();
+    const first = cellAt(0, 0);
+    if (first) select(first);
+    table.sheet = { getRaw, setRaw, refresh, select, getSel: () => sel };
+};
+
+      const initAutoFill = (tableId)=> {
+      const controller = new AbortController();
+  const { signal } = controller;
+      const table = document.getElementById(tableId);
+      const handle = document.getElementById(`fillHandle-${tableId}`);
+      if (!table || !handle) return;
+
+      let selectedCell = null;
+      let isDragging = false;
+      let dragTargetCell = null;
+
+      // Reposition handle to bottom-right of active cell
+      const updateHandlePosition=(cell) => {
+          if (!cell) {
+              handle.style.display = 'none';
+              return;
+          }
+          selectedCell = cell;
+          const rect = cell.getBoundingClientRect();
+          const parentRect = table.parentElement.getBoundingClientRect();
+
+          handle.style.display = 'block';
+          handle.style.top = `${rect.bottom - parentRect.top + table.parentElement.scrollTop -6}px`;
+          handle.style.left = `${rect.right - parentRect.left + table.parentElement.scrollLeft -6}px`;
+      }
+const colToNum = s => s.toUpperCase().split('').reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0);
+const numToCol = n => {
+    let s = '';
+    while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
+    return s;
+};
+
+// Shifts relative refs by (dr, dc). String literals and function names are left alone.
+// $A$1 / $A1 / A$1 stay fixed on the $ part.
+const shiftFormula = (formula, dr, dc) =>
+    formula.replace(
+        /("(?:[^"]|"")*"|'(?:[^']|'')*')|(?<![A-Za-z0-9_$])(\$?)([A-Za-z]+)(\$?)(\d+)(?![\w(])/g,
+        (m, strLit, cAbs, col, rAbs, row) => {
+            if (strLit) return strLit;
+            const c = colToNum(col) + (cAbs ? 0 : dc);
+            const r = +row + (rAbs ? 0 : dr);
+            if (c < 1 || r < 1) return '#REF';       // shifted off the sheet, evaluates to #ERR
+            return cAbs + numToCol(c) + rAbs + r;
+        }
+    );
+
+// One entry point for both formulas and plain values
+const fillValue = (base, step, dr, dc) =>
+    base.trim().charAt(0) === '='
+        ? shiftFormula(base.trim(), dr, dc)
+        : getNextValue(base, step);
+      // Sequence Generator
+      const getNextValue = (baseVal, step) => {
+          const trimmed = baseVal.trim();
+
+          // 1. Numbers (1, 2, 3...)
+if (/^-?\d+(?:\.\d+)?$/.test(trimmed)) {
+    return String(Number(trimmed) + step);
+}
+
+          // 2. Letters (a-z, A-Z)
+          if (trimmed.length === 1 && /[a-zA-Z]/.test(trimmed)) {
+              const charCode = trimmed.charCodeAt(0);
+              const isUpper = charCode >= 65 && charCode <= 90;
+              const baseCode = isUpper ? 65 : 97;
+              const nextCode = baseCode + (((charCode - baseCode + step) % 26) + 26) % 26;  
+              return String.fromCharCode(nextCode);
+          }
+
+          // Default: copy value if pattern not recognized
+          return baseVal;
+      }
+
+      // 1. Focus listener to attach handle
+      table.addEventListener('focusin', (e) => {
+          if (e.target.tagName === 'TD') updateHandlePosition(e.target);
+      });
+
+      // 2. Handle Mouse Down
+      handle.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          isDragging = true;
+      },{ signal });
+
+      // 3. Highlight range during drag
+      table.addEventListener('pointermove', (e) => {
+          if (!isDragging || !selectedCell) return;
+          const target = e.target.closest('td');
+          if (!target) return;
+
+          dragTargetCell = target;
+          const startRow = parseInt(selectedCell.dataset.row);
+          const startCol = parseInt(selectedCell.dataset.col);
+          const endRow = parseInt(target.dataset.row);
+          const endCol = parseInt(target.dataset.col);
+
+          const minRow = Math.min(startRow, endRow);
+          const maxRow = Math.max(startRow, endRow);
+          const minCol = Math.min(startCol, endCol);
+          const maxCol = Math.max(startCol, endCol);
+
+          table.querySelectorAll('td').forEach(td => {
+              const r = parseInt(td.dataset.row);
+              const c = parseInt(td.dataset.col);
+              if (r >= minRow && r <= maxRow && c >= minCol && c <= maxCol) {
+                  td.classList.add('drag-highlight');
+              } else {
+                  td.classList.remove('drag-highlight');
+              }
+          });
+      }, { signal });
+  document.addEventListener('pointerdown', (e)=> {
+    if (e.target.tagName === 'TD') updateHandlePosition(e.target);
+    else updateHandlePosition()
+  },{ signal })
+      // 4. Perform Auto-Fill on Mouse Up
+      document.addEventListener('pointerup', () => {
+          if (!isDragging || !selectedCell || !dragTargetCell) {
+              isDragging = false;
+              return;
+          }
+          isDragging = false;
+
+          const startRow = parseInt(selectedCell.dataset.row);
+          const startCol = parseInt(selectedCell.dataset.col);
+          const endRow = parseInt(dragTargetCell.dataset.row);
+          const endCol = parseInt(dragTargetCell.dataset.col);
+
+          const baseValue = table.sheet.getRaw(selectedCell);   // was selectedCell.innerText
+
+          // Vertical vs Horizontal Drag priority
+          const rowDiff = Math.abs(endRow - startRow);
+          const colDiff = Math.abs(endCol - startCol);
+
+          if (rowDiff >= colDiff) {
+              // Vertical Drag (Up / Down)
+              const dir = endRow >= startRow ? 1 : -1;
+              for (let r = startRow + dir; dir > 0 ? r <= endRow : r >= endRow; r += dir) {
+                  const step = Math.abs(r - startRow) * dir;
+                  const cell = table.querySelector(`td[data-row="${r}"][data-col="${startCol}"]`);
+                  if (cell) table.sheet.setRaw(cell, fillValue(baseValue, step, r - startRow, 0));
+              }
+          } else {
+              // Horizontal Drag (Left / Right)
+              const dir = endCol >= startCol ? 1 : -1;
+              for (let c = startCol + dir; dir > 0 ? c <= endCol : c >= endCol; c += dir) {
+                  const step = Math.abs(c - startCol) * dir;
+                  const cell = table.querySelector(`td[data-row="${startRow}"][data-col="${c}"]`);
+                  if (cell) table.sheet.setRaw(cell, fillValue(baseValue, step, 0, c - startCol));
+              }
+          }
+table.sheet.refresh();
+          // Cleanup highlights & update position
+          table.querySelectorAll('td').forEach(td => td.classList.remove('drag-highlight'));
+          updateHandlePosition(dragTargetCell);
+      },{ signal });
+      fileWinBox.onclose = ()=>{
+  controller.abort('Spreadsheet closed');
+  }
+  }
+
+
+// Global helper (ensure this exists in scope or window)
+window.getColLabel = function(index) {
+    let label = '';
+    let i = index;
+    while (i >= 0) {
+        label = String.fromCharCode((i % 26) + 65) + label;
+        i = Math.floor(i / 26) - 1;
+    }
+    return label;
+};
+
+
+
+function parseCsv(text) {
+    const rows = []; let row = [], f = '', q = false;
+    text = text.replace(/^\ufeff/, '');
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (q) {
+            if (ch === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; }
+            else f += ch;
+        } else if (ch === '"') q = true;
+        else if (ch === ',') { row.push(f); f = ''; }
+        else if (ch === '\n' || ch === '\r') {
+            if (ch === '\r' && text[i + 1] === '\n') i++;
+            row.push(f); rows.push(row); row = []; f = '';
+        } else f += ch;
+    }
+    row.push(f); rows.push(row);
+    return rows;
+}
+
+
+function parseFods(text) {
+    if (!text || !text.trim()) return [[]];
+
+    const xml = new DOMParser().parseFromString(
+        text.replace(/^\ufeff/, ''),
+        'application/xml'
+    );
+
+    if (xml.getElementsByTagName('parsererror').length) {
+        console.error('Error parsing FODS');
+        return [[]];
+    }
+
+    const NS = {
+        table: 'urn:oasis:names:tc:opendocument:xmlns:table:1.0',
+        text: 'urn:oasis:names:tc:opendocument:xmlns:text:1.0',
+        office: 'urn:oasis:names:tc:opendocument:xmlns:office:1.0'
+    };
+
+    const getAttr = (el, ns, name, fallback = '') =>
+        el.getAttributeNS(ns, name) ?? fallback;
+
+    function extractText(cell) {
+        const paragraphs = Array.from(
+            cell.getElementsByTagNameNS(NS.text, 'p')
+        );
+
+        return paragraphs.map(p => {
+            function read(node) {
+                if (node.nodeType === 3) {
+                    return node.nodeValue;
+                }
+
+                if (node.nodeType !== 1) return '';
+
+                switch (node.localName) {
+                    case 's': {
+                        const count = Math.max(
+                            1,
+                            Number(getAttr(node, NS.text, 'c', '1')) || 1
+                        );
+                        return ' '.repeat(count);
+                    }
+
+                    case 'tab':
+                        return '\t';
+
+                    case 'line-break':
+                        return '\n';
+
+                    default:
+                        return Array.from(node.childNodes)
+                            .map(read)
+                            .join('');
+                }
+            }
+
+            return Array.from(p.childNodes).map(read).join('');
+        }).join('\n');
+    }
+
+    function cellValue(cell) {
+        const type = getAttr(cell, NS.office, 'value-type');
+
+       
+        const formula = getAttr(cell, NS.table, 'formula');
+
+if (formula) {
+    return formula.replace(/^of:/, '');
+}
+
+        switch (type) {
+            case 'boolean':
+                return getAttr(
+                    cell, NS.office, 'boolean-value'
+                ) === 'true';
+
+            case 'float':
+            case 'currency':
+            case 'percentage': {
+                const value = getAttr(cell, NS.office, 'value');
+                return value !== '' ? Number(value) : extractText(cell);
+            }
+
+            case 'date':
+                return getAttr(cell, NS.office, 'date-value');
+
+            case 'time':
+                return getAttr(cell, NS.office, 'time-value');
+
+            case 'string':
+                return getAttr(
+                    cell, NS.office, 'string-value',
+                    extractText(cell)
+                );
+
+            default:
+                return extractText(cell);
+        }
+    }
+
+    const tables = xml.getElementsByTagNameNS(
+        NS.table, 'table'
+    );
+
+    if (!tables.length) return [[]];
+
+    const table = tables[0];
+    const rows = [];
+
+    for (const element of Array.from(table.children)) {
+        if (element.localName !== 'table-row' &&
+            element.localName !== 'table-header-rows') {
+            continue;
+        }
+
+        const rowElements = element.localName === 'table-row'
+            ? [element]
+            : Array.from(
+                element.getElementsByTagNameNS(NS.table, 'table-row')
+            );
+
+        for (const rowElement of rowElements) {
+            const row = [];
+
+            for (const cell of Array.from(rowElement.children)) {
+                if (cell.localName !== 'table-cell' &&
+                    cell.localName !== 'covered-table-cell') {
+                    continue;
+                }
+
+                const repeat = Math.max(
+                    1,
+                    Number(getAttr(
+                        cell,
+                        NS.table,
+                        'number-columns-repeated',
+                        '1'
+                    )) || 1
+                );
+
+                const value = cell.localName === 'covered-table-cell'
+                    ? ''
+                    : cellValue(cell);
+
+                for (let i = 0; i < repeat; i++) {
+                    row.push(value);
+                }
+            }
+
+            const repeatRows = Math.max(
+                1,
+                Number(getAttr(
+                    rowElement,
+                    NS.table,
+                    'number-rows-repeated',
+                    '1'
+                )) || 1
+            );
+
+            for (let i = 0; i < repeatRows; i++) {
+                rows.push([...row]);
+            }
+        }
+    }
+
+    return rows;
+}
+
+
+function parseTsv(text) {
+    const rows = []; let row = [], f = '', q = false;
+    text = text.replace(/^\ufeff/, '');
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (q) {
+            if (ch === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; }
+            else f += ch;
+        } else if (ch === '"') q = true;
+        else if (ch === '\t') { row.push(f); f = ''; }
+        else if (ch === '\n' || ch === '\r') {
+            if (ch === '\r' && text[i + 1] === '\n') i++;
+            row.push(f); rows.push(row); row = []; f = '';
+        } else f += ch;
+    }
+    row.push(f); rows.push(row);
+    return rows;
+}
+
+const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+let rows;
+if (fileType == 'text/csv'){
+    rows = parseCsv(content.trimEnd())
+}else if (fileType == 'text/tab-separated-values'){
+    rows = parseTsv(content.trimEnd());
+}else if (fileType == 'application/vnd.oasis.opendocument.spreadsheet'){
+    rows = parseFods(content.trimEnd());
+}
+
+// Determine max column count across all rows
+const maxCols = Math.max(...rows.map(r => r.length), 0);
+
+let tableHtml = `
+<table id="${uniqueFileId}" style=" border-spacing: 0;width:100%; border-collapse:collapse; padding:0; margin:0; color: var(--color-text-primary); user-select: none;">`;
+
+// 1. Render Top Column Headers (Corner cell + A, B, C...)
+tableHtml += "<thead><tr style='text-align: center; font-weight: bold; position: sticky; top: 0; z-index: 2; background: var(--toolbar-bg);'>";
+tableHtml += "<th style='border:1px solid #ccc; padding:5px 10px;  min-width:20px; background: var(--toolbar-bg); text-align:right;'>◢</th>"; // Top-left corner
+
+for (let c = 0; c < maxCols; c++) {
+    tableHtml += `<th style='border:1px solid #ccc; padding:5px 10px; min-width:60px; background: var(--toolbar-bg); font-size:15px;'>${window.getColLabel(c)}</th>`;
+}
+tableHtml += "</tr></thead><tbody>";
+
+// 2. Render Data Rows with Left Row Numbers (1, 2, 3...)
+rows.forEach((row, rowIndex) => {
+    tableHtml += "<tr>";
+    
+    // Row Index Header Cell
+    tableHtml += `<th style="border:1px solid #ccc; padding:5px 10px; background: var(--toolbar-bg); font-size:15px; text-align:center; position: sticky; left: 0; z-index: 1;">${rowIndex + 1}</th>`;
+    
+    row.forEach((cell, cellIndex) => {
+        tableHtml += `<td contenteditable="true" 
+                        data-row="${rowIndex}" data-col="${cellIndex}"
+                        style="border:1px solid #ccc; padding:5px; min-width:60px; position:relative;;">
+                        ${cell}</td>`;
+    });
+
+    // Fill remaining empty cells if row length is shorter than maxCols
+    for (let c = row.length; c < maxCols; c++) {
+        tableHtml += `<td contenteditable="true" 
+                        data-row="${rowIndex}" data-col="${c}"
+                        style="border:1px solid #ccc; padding:5px; min-width:60px; position:relative;"></td>`;
+    }
+
+    tableHtml += "</tr>";
+});
+
+tableHtml += `</tbody></table>
+<div id="fillHandle-${uniqueFileId}" class="fill-handle" style="display:none; position:absolute; width:5px; height:5px; background:var(--accent-color, #0078d7); border:1px solid #fff; cursor: cell; z-index:10;"></div>
+<style>
+  #${uniqueFileId} td { user-select: text; }
+  #${uniqueFileId} td:focus { outline: 1px solid var(--accent-color, #0078d7) !important; z-index: 1; }
+  #${uniqueFileId} td.drag-highlight { background: var(--accent-color, #0078d7) !important; color: #fff; }
+</style>`;
+
+
+// ---------- shared builders (keep in sync with the initial render) ----------
+const CELL_STYLE   = "border:1px solid #ccc; padding:5px; min-width:60px; position:relative;";
+const ROW_TH_STYLE = "border:1px solid #ccc; padding:5px 10px; background: var(--toolbar-bg); font-size:15px; text-align:center; position: sticky; left: 0; z-index: 1;";
+const COL_TH_STYLE = "border:1px solid #ccc; padding:5px 10px; min-width:60px; background: var(--toolbar-bg); font-size:15px;";
+const REF_RE = /("(?:[^"]|"")*"|'(?:[^']|'')*')|(?<![A-Za-z0-9_$])(\$?)([A-Za-z]+)(\$?)(\d+)(?![\w(])(?::(\$?)([A-Za-z]+)(\$?)(\d+)(?![\w(]))?/g;
+
+const initGridEdit = tableId => {
+    const table = document.getElementById(tableId);
+    if (!table || !table.sheet) return;
+    const sheet = table.sheet;
+    const wrap = table.parentElement;
+
+    const colIdx = s => s.toUpperCase().split('').reduce((a, ch) => a * 26 + ch.charCodeAt(0) - 64, 0) - 1;
+    const colName = window.getColLabel;
+    const rowCount = () => table.tBodies[0].rows.length;
+    const colCount = () => table.tHead.rows[0].cells.length - 1;
+
+    // ---------- formula reference rewriting (absolute $refs shift too) ----------
+    const remap = (f, isCol, at, del) => {
+        const k = isCol ? 'c' : 'r';
+        const one = a => del ? (a === at ? null : a > at ? a - 1 : a) : (a >= at ? a + 1 : a);
+        const span = (lo, hi) => {
+            if (!del) return [lo >= at ? lo + 1 : lo, hi >= at ? hi + 1 : hi];
+            const l = lo > at ? lo - 1 : lo, h = hi >= at ? hi - 1 : hi;
+            return h < l ? null : [l, h];
+        };
+        const fmt = (p, cA, rA) => cA + colName(p.c) + rA + (p.r + 1);
+
+        return f.replace(REF_RE, (m, lit, ca, cl, ra, rw, ca2, cl2, ra2, rw2) => {
+            if (lit) return lit;
+            const p = { c: colIdx(cl), r: +rw - 1 };
+            if (cl2 === undefined) {
+                const n = one(p[k]);
+                if (n === null) return '#REF';
+                p[k] = n;
+                return fmt(p, ca, ra);
+            }
+            const q = { c: colIdx(cl2), r: +rw2 - 1 };
+            const fwd = p[k] <= q[k];
+            const s = span(fwd ? p[k] : q[k], fwd ? q[k] : p[k]);
+            if (!s) return '#REF';
+            p[k] = fwd ? s[0] : s[1];
+            q[k] = fwd ? s[1] : s[0];
+            return fmt(p, ca, ra) + ':' + fmt(q, ca2, ra2);
+        });
+    };
+
+    const rewrite = (isCol, at, del) => {
+        table.querySelectorAll('td[data-row]').forEach(td => {
+            const raw = sheet.getRaw(td);
+            if (raw.charAt(0) !== '=' || raw.length < 2) return;
+            const next = '=' + remap(raw.slice(1), isCol, at, del);
+            if (next !== raw) sheet.setRaw(td, next);
+        });
+    };
+
+    const renumber = () => {
+        [...table.tHead.rows[0].cells].forEach((th, i) => { if (i) th.textContent = colName(i - 1); });
+        [...table.tBodies[0].rows].forEach((tr, r) => {
+            tr.cells[0].textContent = r + 1;
+            [...tr.cells].forEach((td, i) => { if (i) { td.dataset.row = r; td.dataset.col = i - 1; } });
+        });
+    };
+
+    // ---------- hover button ----------
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.style.cssText = 'display:none; position:absolute; z-index:6; width:18px; height:18px; padding:0; ' +
+        'border-radius:50%; line-height:16px; font-size:14px; font-weight:bold; text-align:center; ' +
+        'cursor:pointer; transform:translate(-50%,-50%); border:1px solid #fff; color:#fff;';
+    wrap.appendChild(btn);
+    let act = null;
+
+    const hide = () => { btn.style.display = 'none'; act = null; };
+    const show = (a, x, y) => {
+        act = a;
+        const del = a.type === 'delete';
+        btn.textContent = del ? '−' : '+';
+        btn.style.background = del ? '#d13438' : 'var(--accent-color, #0078d7)';
+        btn.style.left = x + 'px';
+        btn.style.top = y + 'px';
+        btn.style.display = 'block';
+    };
+
+    // ---------- apply a structural change ----------
+    const apply = (mutate, isCol, at, del) => {
+        const s = sheet.getSel();
+        const sr = s ? +s.dataset.row : 0, sc = s ? +s.dataset.col : 0;
+
+        mutate();
+        renumber();
+        rewrite(isCol, at, del);
+        sheet.refresh();
+        hide();
+
+        const target = s && s.isConnected
+            ? s
+            : table.querySelector(`td[data-row="${Math.min(sr, rowCount() - 1)}"][data-col="${Math.min(sc, colCount() - 1)}"]`);
+        if (target) {
+            const fh = document.getElementById('fillHandle-' + tableId);
+            if (fh) fh.style.display = 'none';      // focusin below repositions it
+            sheet.select(target);
+            target.focus({ preventScroll: true });
+        }
+    };
+
+    Object.assign(sheet, {
+        insertRow: at => {
+            at = Math.max(0, Math.min(at, rowCount()));
+            apply(() => {
+                const tbody = table.tBodies[0], cols = colCount();
+                const tr = document.createElement('tr');
+                tr.appendChild(makeRowHeader(at));
+                for (let c = 0; c < cols; c++) tr.appendChild(makeCell(at, c));
+                tbody.insertBefore(tr, tbody.rows[at] || null);
+            }, false, at, false);
+        },
+        insertCol: at => {
+            at = Math.max(0, Math.min(at, colCount()));
+            apply(() => {
+                const head = table.tHead.rows[0];
+                head.insertBefore(makeColHeader(at), head.cells[at + 1] || null);
+                [...table.tBodies[0].rows].forEach((tr, r) =>
+                    tr.insertBefore(makeCell(r, at), tr.cells[at + 1] || null));
+            }, true, at, false);
+        },
+        deleteRow: at => {
+            if (rowCount() <= 1 || at < 0 || at >= rowCount()) return;
+            apply(() => table.tBodies[0].deleteRow(at), false, at, true);
+        },
+        deleteCol: at => {
+            if (colCount() <= 1 || at < 0 || at >= colCount()) return;
+            apply(() => {
+                table.tHead.rows[0].deleteCell(at + 1);
+                [...table.tBodies[0].rows].forEach(tr => tr.deleteCell(at + 1));
+            }, true, at, true);
+        }
+    });
+
+    // ---------- events ----------
+    wrap.addEventListener('pointermove', e => {
+        if (e.target === btn) return;
+        const th = e.target.closest && e.target.closest('th');
+        if (!th || !table.contains(th)) return hide();
+
+        const col = !!th.closest('thead');
+        if (col && !th.cellIndex) return hide();                       // corner cell
+
+        const rect = th.getBoundingClientRect(), box = wrap.getBoundingClientRect();
+        const idx = col ? th.cellIndex - 1 : th.parentElement.sectionRowIndex;
+        const f = col ? (e.clientX - rect.left) / rect.width : (e.clientY - rect.top) / rect.height;
+
+        const INSET = 12;   // px from the header edge to the button's center (button is 18px wide)
+
+let type = 'insert', at, pos;
+if (f < 0.3) {                       // left / top zone, button sits inside the header
+    at = idx;
+    pos = col ? rect.left + INSET : rect.top;
+} else if (f > 0.7) {                // right / bottom zone
+    at = idx + 1;
+    pos = col ? rect.right - INSET : rect.bottom;
+} else {                             // middle: delete, centered
+    type = 'delete';
+    at = idx;
+    pos = col ? rect.left + rect.width / 2 : rect.top + rect.height / 2;
+}
+
+const cx = col ? pos : rect.left + rect.width / 2;
+const cy = col ? rect.top + rect.height / 2 : pos;
+        show({ type, axis: col ? 'col' : 'row', at },
+             cx - box.left + wrap.scrollLeft,
+             cy - box.top + wrap.scrollTop);
+    });
+
+    btn.addEventListener('pointerdown', e => e.preventDefault());      // don't steal focus
+    btn.addEventListener('click', () => {
+        if (!act) return;
+        const { type, axis, at } = act;
+        document.activeElement?.blur?.();                              // commits a pending formula-bar edit
+        sheet[type + (axis === 'col' ? 'Col' : 'Row')](at);
+    });
+    wrap.addEventListener('pointerleave', hide);
+    wrap.addEventListener('scroll', hide);
+};
+
+const makeCell = (row, col) => {
+    const td = document.createElement('td');
+    td.contentEditable = 'false';   // editing goes through the formula bar
+    td.tabIndex = 0;                // focusable, so keyboard nav and fill handle work
+    td.dataset.row = row;
+    td.dataset.col = col;
+    td.dataset.raw = '';            // getRaw() reads this
+    td.style.cssText = CELL_STYLE;
+    return td;
+};
+
+const makeRowHeader = rowIndex => {
+    const th = document.createElement('th');
+    th.textContent = rowIndex + 1;
+    th.style.cssText = ROW_TH_STYLE;
+    return th;
+};
+
+const makeColHeader = colIndex => {
+    const th = document.createElement('th');
+    th.textContent = window.getColLabel(colIndex);
+    th.style.cssText = COL_TH_STYLE;
+    return th;
+};
+
+// ---------- add row / column (append at end) ----------
+window.addRow = id => { const t = document.getElementById(id); t?.sheet?.insertRow(t.tBodies[0].rows.length); };
+window.addCol = id => { const t = document.getElementById(id); t?.sheet?.insertCol(t.tHead.rows[0].cells.length - 1); };
+
+const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 121.83 122.88'><g fill='${getWBtheme().includes('dark') ? '#ddd' : '#000'}'><path d="M27.61,34.37l-4.07,4.6l0.4,1.74h10.48c-2.14,12.38-3.74,23.54-6.81,40.74c-3.67,21.94-5.78,27.33-7.03,29.3 c-1.1,1.95-2.68,2.96-4.82,2.96c-2.35,0-6.6-1.86-8.88-3.97c-0.82-0.56-1.79-0.42-2.82,0.26C2,111.74,0,114.42,0,116.82 c-0.12,3.24,4.21,6.06,8.34,6.06c3.64,0,9-2.28,14.64-7.64c7.71-7.31,13.48-17.34,18.3-39.02c3.1-13.84,4.56-22.84,6.74-35.5 l13.02-1.18l2.82-5.17H49.2C52.99,10.53,55.95,7,59.59,7c2.42,0,5.24,1.86,8.48,5.52c0.96,1.32,2.4,1.18,3.5,0.28 c1.85-1.1,4.13-3.92,4.28-6.48C75.96,3.5,72.6,0,66.82,0C61.58,0,53.55,3.5,46.8,10.38c-5.92,6.27-9.02,14.1-11.16,23.99H27.61 L27.61,34.37z M69.27,50.33c4.04-5.38,6.46-7.17,7.71-7.17c1.29,0,2.32,1.27,4.53,8.41l3.78,12.19 c-7.31,11.18-12.66,17.41-15.91,17.41c-1.08,0-2.17-0.34-2.94-1.1c-0.76-0.76-1.6-1.39-2.42-1.39c-2.68,0-6,3.25-6.06,7.28 c-0.06,4.11,2.82,7.05,6.6,7.05c6.49,0,11.98-6.37,22.58-23.26l3.1,10.45c2.66,8.98,5.78,12.81,9.68,12.81 c4.82,0,11.3-4.11,18.37-15.22l-2.96-3.38c-4.25,5.12-7.07,7.52-8.74,7.52c-1.86,0-3.49-2.84-5.64-9.82l-4.53-14.73 c2.68-3.95,5.32-7.27,7.64-9.92c2.76-3.15,4.89-4.49,6.34-4.49c1.22,0,2.28,0.52,2.94,1.25c0.87,0.96,1.39,1.41,2.42,1.41 c2.33,0,5.93-2.96,6.06-6.88c0.12-3.64-2.14-6.74-6.06-6.74c-5.92,0-11.14,5.1-21.19,20.04l-2.07-6.41 c-2.9-9-4.82-13.63-8.86-13.63c-4.7,0-11.16,5.78-17.48,14.94L69.27,50.33L69.27,50.33z"/></g></svg>`;
+const svgUrl = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+      newContent = `
+        <style>
+        #csvContainer-${uniqueFileId} select{
+        appearance: base-select; height:25px; font-size:13.333px;
+        }
+
+        @media (prefers-color-scheme: light) {
+    #csvContainer-${uniqueFileId} table, tr, td, th {
+        border: 1px solid #fff !important;
+    }
+}
+
+/* Dark theme */
+@media (prefers-color-scheme: dark) {
+    #csvContainer-${uniqueFileId} table, tr, td, th {
+        border: 1px solid #000 !important;
+    }
+}
+
+         #csvContainer-${uniqueFileId} input[id*="form-bar-content-"] {
+  padding-right: 35px;
+        cursor:default;
+  background-image: ${svgUrl} !important;
+  background-repeat: no-repeat !important;
+  background-size: 16px 16px;
+  background-position: right 10px center !important;
+}
+        </style>
+        <div id="csvContainer-${uniqueFileId}" style="height: 100%; display: flex; flex-direction: column; box-sizing: border-box; overflow: hidden; background-color: var(--bg-color); position: relative;">
+          <div class="toolbar" id='tlbar-${uniqueFileId}'style="flex-shrink: 0;">
+            
+        <select id="save-mode-${uniqueFileId}">
+  <!-- This button automatically acts as the native trigger -->
+<button id="saveBtn-${uniqueFileId}">${_('save_btn')}</button>
+  <option value='saveNone' disabled hidden selected></option>
+
+  <option value="csv_pres">CSV (${_('with_formulas_preservation')})</option>
+  <option value="csv">CSV (${_('computed_values')})</option>
+  <hr>
+  <option value="tsv_pres">TSV (${_('with_formulas_preservation')})</option>
+  <option value="tsv">TSV (${_('computed_values')})</option>
+  <hr>
+  <option value="fods_pres">FODS (${_('with_formulas_preservation')})</option>
+  <option value="fods">FODS (${_('computed_values')})</option>
+</select>
+            <button id="printBtn-${uniqueFileId}">${_('print_btn')}</button>
+            <button id="findBtn-${uniqueFileId}">${_('find_btn')}</button>
+            <vr></vr> 
+            <button style='width:25px' id="PBtn-${uniqueFileId}" onclick='document.getElementById("${uniqueFileId}").style.fontSize = parseFloat(window.getComputedStyle(document.getElementById("${uniqueFileId}")).getPropertyValue("font-size"))+5+"px";'>+</button>
+            <button style='width:25px' id="MBtn-${uniqueFileId}" onclick='document.getElementById("${uniqueFileId}").style.fontSize = (parseFloat(window.getComputedStyle(document.getElementById("${uniqueFileId}")).getPropertyValue("font-size")) > 5 ) ? parseFloat(window.getComputedStyle(document.getElementById("${uniqueFileId}")).getPropertyValue("font-size"))-5+"px": parseFloat(window.getComputedStyle(document.getElementById("${uniqueFileId}")).getPropertyValue("font-size"));' style="padding: 4px 8px; border: 1px solid #aaa; background-color: #ddd;">-</button>
+        <vr></vr>
+
+        <input
+        id='form-bar-${uniqueFileId}'
+  type="text"
+  autocomplete="off"
+  spellCheck="false"
+  disabled
+  placeholder="=SUM(A1:A5)"
+  style="flex: 1;"
+/>
+          </div>
+          <div style="flex: 1; overflow: auto; background-color: var(--bg-color); position: relative;">
+            ${tableHtml}
+          </div>
+        </div>`;
+
+      // Attach drag logic after DOM injection
+      setTimeout(() => {
+    initFormulas(uniqueFileId, `tlbar-${uniqueFileId}`);
+    initGridEdit(uniqueFileId);          // must come after initFormulas (needs table.sheet)
+    initAutoFill(uniqueFileId);
+}, 0);
+  } else if (fileType === "text/markdown" || fileType == 'application/vnd.oasis.opendocument.text-flat-xml') {
+        isEditable = true;
+        fileWinBox.addClass("file-e");
+        document.execCommand('styleWithCSS', false, false);
+document.execCommand('defaultParagraphSeparator', false, 'p');
+
+if (fileType === "text/markdown"){
+
+            initialHtml = marked.parse(content);
+
+const temp = document.createElement('div');
+temp.innerHTML = initialHtml;
+
+temp.querySelectorAll('del').forEach(el => {
+    const s = document.createElement('s');
+    s.innerHTML = el.innerHTML;
+    el.replaceWith(s);
+});
+
+initialHtml = temp.innerHTML;
+        }else if (fileType == 'application/vnd.oasis.opendocument.text-flat-xml'){
+            initialHtml = fodtToHtml(content || '')
+        }
+
+        window.input = (text) => {
+    try{
+      wasSaved = false;
+      
+            const symLabel = fileWinBox.body.querySelector("#sym-"+uniqueFileId);
+            if (symLabel) symLabel.innerText = text.length+"sym";
+    }catch{}
+        }
+
+window.execAndCheck = function(id, cmd) {
+    const editor = document.getElementById(id);
+    if (!editor) return;
+
+    editor.focus();
+
+    if (cmd === 'insertOrderedList' || cmd === 'insertUnorderedList') {
+        const listTag = cmd === 'insertOrderedList' ? 'ol' : 'ul';
+
+        // If already inside this list, toggle it off.
+        const selection = window.getSelection();
+        let node = selection?.anchorNode;
+        if (node?.nodeType === Node.TEXT_NODE) node = node.parentElement;
+
+        const currentList = node?.parentElement?.closest('ul, ol')
+            || node?.closest?.('ul, ol');
+
+        if (currentList && currentList.tagName.toLowerCase() === listTag) {
+            document.execCommand(cmd, false, null);
+        } else {
+            document.execCommand(cmd, false, null);
+        }
+    } else {
+        document.execCommand(cmd, false, null);
+    }
+
+    updateToolbarState(id);
+};
+
+window.applyHeading = function(id, tagName) {
+    const editor = document.getElementById(id);
+    if (!editor) return;
+
+    editor.focus();
+
+    // Toggle the current heading off when the same heading is selected.
+    const selection = window.getSelection();
+    let node = selection?.anchorNode;
+    if (node?.nodeType === Node.TEXT_NODE) node = node.parentElement;
+
+    const currentBlock = node?.closest?.('h1, h2, h3, p');
+
+    if (currentBlock && currentBlock.tagName.toLowerCase() === tagName.toLowerCase()) {
+        document.execCommand('formatBlock', false, '<p>');
+    } else {
+        document.execCommand('formatBlock', false, `<${tagName}>`);
+    }
+
+    updateToolbarState(id);
+};
+
+// Check cursor position and apply .ok class to active buttons
+window.updateToolbarState = function(id) {
+    const editor = document.getElementById(id);
+    const container = document.getElementById(`toolbar-${id}`);
+    if (!editor || !container) return;
+
+    // 1. Check inline & list styles using queryCommandState
+    const cmdButtons = container.querySelectorAll('button[data-cmd]');
+    cmdButtons.forEach(btn => {
+        const cmd = btn.getAttribute('data-cmd');
+        try {
+            if (document.queryCommandState(cmd)) {
+                btn.classList.add('ok');
+            } else {
+                btn.classList.remove('ok');
+            }
+
+
+        } catch {
+            btn.classList.remove('ok');
+        }
+    });
+
+    // 2. Check Block Format (H1, H2, H3, P)
+    let blockVal = '';
+    try {
+        blockVal = (document.queryCommandValue('formatBlock') || '').toLowerCase();
+    } catch {}
+
+    ['h1', 'h2', 'h3', 'p'].forEach(tag => {
+        const btn = document.getElementById(`btn-${tag}-${id}`);
+        if (!btn) return;
+
+        if (blockVal.includes(tag)) {
+            btn.classList.add('ok');
+        } else {
+            btn.classList.remove('ok');
+        }
+    });
+};
+
+        newContent = `
+            <style>
+        #toolbar-${uniqueFileId} select{
+        appearance: base-select; height:25px; font-size:13.333px;
+        }
+            </style>
+    <div style="background: #e0e0e0; height: 100%; display: flex; flex-direction: column; box-sizing: border-box;">
+
+        <div class="toolbar" id="toolbar-${uniqueFileId}" style="position: sticky; top: 0; overflow-x: auto; z-index: 2;">
+                    <select id="save-mode-${uniqueFileId}">
+  <!-- This button automatically acts as the native trigger -->
+<button id="saveBtn-${uniqueFileId}">${_('save_btn')}</button>
+  <option value='saveNone' disabled hidden selected></option>
+  <option value="md">MD</option>
+  <option value="fodt">FODT</option>
+</select>
+            <button id="printBtn-${uniqueFileId}">${_('print_btn')}</button>
+            <button id="findBtn-${uniqueFileId}">${_('find_btn')}</button>
+
+            <vr></vr>
+
+            <button data-cmd="bold" onclick="execAndCheck('${uniqueFileId}', 'bold')"><b>B</b></button>
+            <button data-cmd="italic" onclick="execAndCheck('${uniqueFileId}', 'italic')"><i>I</i></button>
+            <button data-cmd="underline" onclick="execAndCheck('${uniqueFileId}', 'underline')"><u>U</u></button>
+            <button data-cmd="strikeThrough" onclick="execAndCheck('${uniqueFileId}', 'strikethrough')"><strike>S</strike></button>
+            <vr></vr>
+            <button data-cmd="insertUnorderedList" onclick="execAndCheck('${uniqueFileId}', 'insertUnorderedList')">UL</button>
+            <button data-cmd="insertOrderedList" onclick="execAndCheck('${uniqueFileId}', 'insertOrderedList')">OL</button>
+            ${fileType !== "text/markdown" ? `
+            <vr></vr>
+            <button data-cmd="justifyLeft" onclick="execAndCheck('${uniqueFileId}', 'justifyLeft')">L</button>
+            <button data-cmd="justifyCenter" onclick="execAndCheck('${uniqueFileId}', 'justifyCenter')">C</button>
+            <button data-cmd="justifyRight" onclick="execAndCheck('${uniqueFileId}', 'justifyRight')">R</button>
+` : ''}
+            <vr></vr>
+            <button id="btn-h1-${uniqueFileId}" onclick="applyHeading('${uniqueFileId}', 'h1')">H1</button>
+            <button id="btn-h2-${uniqueFileId}" onclick="applyHeading('${uniqueFileId}', 'h2')">H2</button>
+            <button id="btn-h3-${uniqueFileId}" onclick="applyHeading('${uniqueFileId}', 'h3')">H3</button>
+            <button id="btn-p-${uniqueFileId}" onclick="applyHeading('${uniqueFileId}', 'p')">¶</button>
+        </div>
+
+        <div style="flex: 1; overflow-y: auto; overflow-x: hidden; padding: 20px 0; background:var(--bg-color)">
+            <div contenteditable="true"
+                 class='no-font'
+                 oninput='input(this.innerText)'
+                 id="${uniqueFileId}"
+                 style="margin: 0 auto;
+                        width: 500px;
+                        outline: none;
+                        background: white !important;
+                        color: black;
+                        white-space: normal;
+                        aspect-ratio: 210 / 297;
+                        box-sizing: border-box;
+                        box-shadow: 0 0 15px rgba(0,0,0,0.2);">${initialHtml}</div>
+        </div>
+
+        <div class="footer" style="justify-content: space-between; padding: 5px; margin: 0; border-top: 1px solid #ccc; font-size: 15px;">
+        <span>
+        
+            <span id="sym-${uniqueFileId}"></span>
+            <span id="scale-${uniqueFileId}"></span>
+        </span>
+            <input type="range"
+                   oninput='document.getElementById("${uniqueFileId}").style.width = this.value + "px"; document.getElementById("scale-${uniqueFileId}").innerText=document.getElementById("${uniqueFileId}").style.width;'
+                   min="200" max="1200" value="500" step="50"
+                   style="margin-right: 10px; cursor: pointer;" />
+        </div>
+
+    </div>
+`;
+
+
+
+setTimeout(() => {
+    const el = document.getElementById(uniqueFileId);
+    if (el) {
+        window.input(el.innerText);
+
+        // Update active toggles when selection changes or cursor moves
+        const handler = () => window.updateToolbarState(uniqueFileId);
+        
+        el.addEventListener('keyup', handler);
+        el.addEventListener('mouseup', handler);
+        el.addEventListener('click', handler);
+        
+        // Listen on document selection change for fine caret movements
+        document.addEventListener('selectionchange', () => {
+            if (document.activeElement === el) {
+                window.updateToolbarState(uniqueFileId);
+            }
+        });
+    }
+}, 10);
+    }else if (fileType.trim() == "application/xslt+xml"){
+                  isEditable = false;
+  const parser = new DOMParser();
+  const xslDoc = parser.parseFromString(content, "text/xml");
+
+  // 1. Check if the browser encountered an XML parsing error
+  const parseError = xslDoc.querySelector("parsererror");
+  if (parseError) {
+      console.error("XML/XSLT Syntax Error:", parseError.textContent);
+      // Handle the error gracefully here (e.g., alert the user or fallback)
+
+  }
+
+  const xmlDoc = parser.parseFromString('<?xml version="1.0" encoding="UTF-8"?><root/>', "text/xml");
+
+  const processor = new XSLTProcessor();
+  processor.importStylesheet(xslDoc);
+
+  const resultDoc = processor.transformToDocument(xmlDoc);
+
+  // 2. Make sure the transformation actually succeeded before serializing
+  if (!resultDoc) {
+      console.error("XSLT Transformation failed. Check if your stylesheet structural rules are valid.");
+
+  }
+
+  const serializer = new XMLSerializer();
+   newContent = serializer.serializeToString(resultDoc);
+                }else if (fileType.trim() == "application/vnd.cups-ppd"){
+                  isEditable = false;
+  const ppd = PPD.parse(content);
+
+
+
+window.onPrinterConnected({name:ppd.attributes.ModelName});
+fileWinBox.close();
+
+                }else if (fileType.trim() == "text/x-doldoc"){
+                  isEditable = false;
+                  fileWinBox.body.style.colorScheme = 'light';
+newContent = dolDocToHtml(content);
+
+                } else if (fileType.startsWith("text/") || !exfile.name.split("/").pop().substring(1).includes(".")) {
+                 if (fileType == 'text/vnd.gml') {
+    isEditable = false;
+
+newContent = `
+    <canvas class="gml-canvas" style="
+        display: block;
+        width: 100%;
+        height: 100%;
+        flex: 1 1 auto;
+        min-width: 0;
+        min-height: 0;
+        box-sizing: border-box;
+        background-color: var(--bg-color);
+    "></canvas>
+`;
+
+// fileWinBox.addClass('no-max')
+
+fileWinBox.body.innerHTML = newContent;
+DO_NOT_REPLACE = true;
+
+
+
+    // Query within this window, not the whole document.
+    const canvas = fileWinBox.body.querySelector('.gml-canvas');
+    
+
+
+    // Wait until the browser has laid out the window.
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            try {
+                const parsed = parseGML(content);
+                const graph = parsed.graph || parsed;
+
+                const nodes = [].concat(graph.node || []);
+                const edges = [].concat(graph.edge || []);
+
+                if (nodes.length === 0) {
+                    throw new Error(
+                        'No nodes found. Check the GML structure and parser.'
+                    );
+                }
+
+                const ctx = canvas.getContext('2d');
+
+                
+
 
 
                  /* info.textContent =
                     `${nodes.length} nodes · ${edges.length} edges`;
                     */
 
-                drawGraph();
+                drawGraph(0,0, {edges,nodes,graph,canvas});
+                
 
                 // Redraw when the window is resized.
                 function redrawGraph(w=0,h=0,timer=false) {
     setTimeout(() => {
-        drawGraph(w,h);
+        drawGraph(w,h,{edges,nodes,graph,canvas});
+        
     },timer ? 100 : 10);
 }
 
-fileWinBox.onresize = function (w, h) {
-    redrawGraph(w,h);
-};
+fileWinBox.onresize = (w, h)=> redrawGraph(w,h);
+fileWinBox.onmaximize = ()=> redrawGraph(0,0,true);
 
-fileWinBox.onmaximize = ()=> redrawGraph(0,0,true);
-fileWinBox.onmaximize = ()=> redrawGraph(0,0,true);
 
             } catch (error) {
                 // info.textContent = 'GML error: ' + error.message;
@@ -7759,7 +8482,7 @@ runningApps.push({id:fileWinBox.id, name:name});
                   id="fileWinBox-frame-${fileWinBox.id}"
                   srcdoc=" ${redefiner.replace(/"/g, '&quot;')} ${modifiedContent.replace(/"/g, '&quot;')} ${redefiner1.replace(/"/g, '&quot;')}" 
                   style="width: 100%; height: 100%; border: none; ${(fndApp?.background_color ? 'background-color: '+ fndApp.background_color+';' : '')}"
-                  onload="parent.applySystemConfig('${fileWinBox.id}')">
+                  onload="parent.applySystemConfig('${fileWinBox.id}', false)">
               </iframe>
           </div>
     `;
@@ -8079,10 +8802,62 @@ runningApps.push({id:fileWinBox.id, name:name});
                 saveMode.addEventListener('change',async (e) => {
                     console.log(`Value picked: ${e.target.value}`);
                     // 1 = "formulas preserved". Falls back to 0 where the property doesn't exist (native browsers)
-        const prsrvFormulas = (e.target.value  == 'csv_pres')?  1 : 0;
-        const newTextContent = sheetToCsv(uniqueFileId, !prsrvFormulas);
+const format = e.target.value;
+let nmnw = exfile.name;
+let tpnw = exfile.type;
+let newTextContent;
+if (format.includes('fodt')){
+if (!exfile.name.toLowerCase().endsWith('.fodt')){
+    nmnw = exfile.name +".fodt"; // Keep double
+    tpnw = 'application/vnd.oasis.opendocument.text-flat-xml';
+         }
 
-                    const newFile = new File([newTextContent], exfile.name, { type: exfile.type ,lastModified: Date.now() });
+newTextContent = htmlToFodt(textArea.innerHTML)
+if (newTextContent == undefined) throw Error('Error saving file!')
+}else if (format.includes('md')){
+         if (!exfile.name.toLowerCase().endsWith('.md')){
+            nmnw = exfile.name +".md"; // Keep double
+            tpnw = 'text/markdown';
+         }
+const turndownService = new TurndownService();
+
+    // Preserve underline using HTML, since standard Markdown has no underline syntax.
+    turndownService.addRule('underline', {
+        filter: ['u'],
+        replacement: content => `<u>${content}</u>`
+    });
+
+    // Convert strike-through to Markdown syntax.
+    turndownService.addRule('strike', {
+        filter: ['s', 'strike', 'del'],
+        replacement: content => `~~${content}~~`
+    });
+
+    newTextContent = turndownService.turndown(textArea.innerHTML);
+
+ 
+} else{
+    const prsrvFormulas = ['csv_pres', 'tsv_pres', 'fods_pres'].includes(format);
+
+ newTextContent = format.includes('csv')
+    ? sheetToCsv(uniqueFileId, !prsrvFormulas)
+    : format.includes('tsv')
+        ? sheetToTsv(uniqueFileId, !prsrvFormulas)
+        : sheetToFods(uniqueFileId, !prsrvFormulas);
+
+
+if (fileType === 'text/csv' || exfile.name.endsWith('.csv')) {
+    if (!format.includes('csv')) {
+        nmnw += format.includes('tsv') ? '.tsv' : '.fods';
+        tpnw = format.includes('tsv') ? 'text/tab-separated-values' : 'application/vnd.oasis.opendocument.spreadsheet';
+    }
+} else if (fileType === 'text/tab-separated-values' && !format.includes('tsv')) {
+    nmnw += format.includes('csv') ? '.csv' : '.fods';
+    tpnw = format.includes('csv') ? 'text/csv' : 'application/vnd.oasis.opendocument.spreadsheet';
+}
+}
+
+                    const newFile = new File([newTextContent], nmnw, { type: tpnw ,lastModified: Date.now() });
 
                     const index = fs.findIndex(item => item.name === exfile.name);
                     if (index !== -1) {
@@ -8123,11 +8898,11 @@ if (currentDisk.mode && currentDisk.mode != 'readwrite'){ saveButton.disabled = 
                 event.stopPropagation();
                 console.log("[EDITOR ACTION]: "+event.key)
                             
-                            if (isSave) saveButton.click();
-                            if (isPrint) printButton.onclick();
-                            if (isFind) findButton.click();     
-                            if (isMinus) sizeMButton.click();
-                            if (isPlus) sizePButton.click();        
+                            if (isSave && saveButton) saveButton.click();
+                            if (isPrint && printButton) printButton.click();
+                            if (isFind && findButton) findButton.click();     
+                            if (isMinus && sizeMButton) sizeMButton.click();
+                            if (isPlus && sizePButton) sizePButton.click();        
 
 
     }
@@ -8146,11 +8921,15 @@ if (currentDisk.mode && currentDisk.mode != 'readwrite'){ saveButton.disabled = 
         // Якщо є незбережені зміни (або isEditable), перехоплюємо закриття
         // Запускаємо асинхронний діалог у фоні
         (async () => {
-
-            const save = await confirm(_("confirm_save_file").replace('{file}', exfile.name.split('/').pop() ));
+if (fileType == 'text/tab-separated-values' || fileType == 'text/csv' || fileType.startsWith('application/vnd.oasis.opendocument')){
+console.log('Skipped save notice. This file type uses a dropdown.')
+}else{
+                const save = await confirm(_("confirm_save_file").replace('{file}', exfile.name.split('/').pop() ));
             if (save) {
                 saveButton.click(); // Твій фіксований збір CSV чи тексту
             }
+}
+
             
             // Змінюємо стан запобіжника і програмно викликаємо закриття знову
             isConfirmedClose = true;
@@ -8217,9 +8996,9 @@ if (currentDisk.mode && currentDisk.mode != 'readwrite'){ saveButton.disabled = 
 
     printButton.onclick = async () => {
         const isTextarea = textArea.tagName.toLowerCase() === "textarea";
-        let newTextContent;
+        let newTextContent0;
         
-          newTextContent = isTextarea ? textArea.value : textArea.innerHTML;
+          newTextContent0 = isTextarea ? textArea.value : textArea.outerHTML;
           if (!textArea) return;
       
         
@@ -8233,7 +9012,7 @@ if (currentDisk.mode && currentDisk.mode != 'readwrite'){ saveButton.disabled = 
 
         doc.open();
 
-        doc.write('<html><head><title>Print</title></head><body>' + newTextContent + '</body></html>');
+        doc.write('<html><head><style>table, tr, td, th{border: 1px solid #000;}</style><title>Print</title></head><body>' + newTextContent0 + '</body></html>');
         doc.close();
 
         iframe0.contentWindow.focus(); 
@@ -8249,43 +9028,18 @@ if (currentDisk.mode && currentDisk.mode != 'readwrite'){ saveButton.disabled = 
 
   // Save handler
   saveButton.onclick = async () => {
-    if (exfile.type == 'text/csv') return; // Dropdown is used;
+    if (fileType == 'text/csv' || fileType == 'text/tab-separated-values' || fileType == 'application/vnd.oasis.opendocument.spreadsheet') return; // Dropdown is used;
     if (currentDisk.mode != 'readwrite') return;
     wasSaved = true;
       console.log("SAVE");
       const isTextarea = textArea.tagName.toLowerCase() === "textarea";
-      let newTextContent;
+      let newTextContent1;
 
       if (isTextarea) {
-          newTextContent = textArea.value;
-      } else {
-          if (fileType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-              const paddingPx = parseInt(window.getComputedStyle(textArea).paddingLeft) || 20;
-              const marginTwips = Math.round((paddingPx / 96) * 1440);
+          newTextContent1 = textArea.value;
+      }
 
-              // Await the asynchronous Blob generator
-              newTextContent = await htmlToDocx(textArea.innerHTML);
-
-    } else if (fileType === "text/markdown") {
-const turndownService = new TurndownService();
-
-    // Preserve underline using HTML, since standard Markdown has no underline syntax.
-    turndownService.addRule('underline', {
-        filter: ['u'],
-        replacement: content => `<u>${content}</u>`
-    });
-
-    // Convert strike-through to Markdown syntax.
-    turndownService.addRule('strike', {
-        filter: ['s', 'strike', 'del'],
-        replacement: content => `~~${content}~~`
-    });
-
-    newTextContent = turndownService.turndown(textArea.innerHTML);
-}
-    }
-
-                    const newFile = new File([newTextContent], exfile.name, { type: exfile.type ,lastModified: Date.now() });
+                    const newFile = new File([newTextContent1], exfile.name, { type: exfile.type ,lastModified: Date.now() });
 
                     const index = fs.findIndex(item => item.name === exfile.name);
                     if (index !== -1) {
@@ -8310,7 +9064,7 @@ const turndownService = new TurndownService();
                    fileType === "application/font-woff" ||
                    fileType === "application/font-woff2";
 
-    if (fileType.startsWith("text/") || !exfile.name.split("/").pop().substring(1).includes(".") || fileType == "application/x-theme" || fileType == 'application/xslt+xml' || fileType == 'application/json' || fileType == 'application/x-kde-palette' || fileType == "application/vnd.cups-ppd") {
+    if (fileType.startsWith("text/") || !exfile.name.split("/").pop().substring(1).includes(".") || fileType == "application/x-theme" || fileType == 'application/xslt+xml' || fileType == 'application/json' || fileType == 'application/x-kde-palette' || fileType == "application/vnd.cups-ppd" || fileType == 'application/vnd.oasis.opendocument.spreadsheet' || fileType == 'application/vnd.oasis.opendocument.text-flat-xml') {
         
         reader.readAsText(exfile);
     } else if (fileType.startsWith("image/") || fileType.startsWith("audio/") || fileType.startsWith("video/") || isFont || fileType == "application/pdf") {
@@ -8808,7 +9562,7 @@ async function performRename(fileIndex, newName) {
       } else{
         return console.error("This drive type doesn't support 'Format'.")
       }
-console.log('Formatted: '+(driveName || disk.name)+"\n"+disk.used+"B left")
+console.log('Formatted: '+(driveName || disk.name))
     }
 
     async function unmountDrive(driveName) {
@@ -8912,7 +9666,7 @@ async function mountDrive(driveName, v = 1, mode = 'readwrite', force = false) {
   const prevFs = fs;
 
   currentDisk = disk;
-  console.warn(currentDisk)
+
   disk.mounted = true;
   disk.mode = mode;
   disk.busy = true;
@@ -9138,120 +9892,7 @@ function getObjectSize(value) {
   }
 }
             
-  async function updateDiskQuotaUI(disk, meter, text) {
-    const lsUsed = new Blob([JSON.stringify(localStorage)]).size; // байти приблизно
-      const ssUsed = new Blob([JSON.stringify(sessionStorage)]).size; // байти приблизно
-      const ckUsed = new Blob([
-    JSON.stringify(
-        await cookieStore.getAll()
-    )
-]).size;// байти приблизно
-      try {
-          if (disk.type === "localStorage") {
-              
-              const totalBytes = maxLS;
-              
-              if (meter && text) {
-                  meter.max = totalBytes;
-                  meter.value = lsUsed;
-                  
-                  // --- Set thresholds for LocalStorage ---
-                  meter.low = totalBytes * 0.50;      // Under 50% is green
-                  meter.high = totalBytes * 0.85;     // Over 85% turns yellow/red
-                  meter.optimum = totalBytes * 0.20;  // Lower usage is better
-                  
-                  text.innerText = formatBytes(lsUsed) + " / " + formatBytes(totalBytes);
-              }
-              return { usedBytes: lsUsed, totalBytes: totalBytes }; // Added return for consistency
-          } else if (disk.type === "sessionStorage") {
-              
-              const totalBytes = maxSS;
-              
-              if (meter && text) {
-                  meter.max = totalBytes;
-                  meter.value = ssUsed;
-                  
-                  // --- Set thresholds for LocalStorage ---
-                  meter.low = totalBytes * 0.50;      // Under 50% is green
-                  meter.high = totalBytes * 0.85;     // Over 85% turns yellow/red
-                  meter.optimum = totalBytes * 0.20;  // Lower usage is better
-                  
-                  text.innerText = formatBytes(ssUsed) + " / " + formatBytes(totalBytes);
-              }
-              return { usedBytes: ssUsed, totalBytes: totalBytes }; // Added return for consistency
-          } else if (disk.type === "cookies") {
-              const totalBytes = maxCK;
-              
-              if (meter && text) {
-                  meter.max = totalBytes;
-                  meter.value = ckUsed;
-                  
-                  // --- Set thresholds for LocalStorage ---
-                  meter.low = totalBytes * 0.50;      // Under 50% is green
-                  meter.high = totalBytes * 0.85;     // Over 85% turns yellow/red
-                  meter.optimum = totalBytes * 0.20;  // Lower usage is better
-                  
-                  text.innerText = formatBytes(ckUsed) + " / " + formatBytes(totalBytes);
-              }
-              return { usedBytes: ckUsed, totalBytes: totalBytes }; // Added return for consistency
-          }else if (disk.type === "cache") {
-              const cchUsed = await getCacheSizeInBytes(disk.name)
-              if (meter && text) {
-                  meter.max = maxCCH;
-                  meter.value = cchUsed;
-                  
-                  // --- Set thresholds for LocalStorage ---
-                  meter.low = maxCCH * 0.50;      // Under 50% is green
-                  meter.high = maxCCH * 0.85;     // Over 85% turns yellow/red
-                  meter.optimum = maxCCH * 0.20;  // Lower usage is better
-                  
-                  text.innerText = formatBytes(cchUsed) + " / " + formatBytes(maxCCH);
-              }
-              return { usedBytes: cchUsed, totalBytes: maxCCH }; // Added return for consistency
-          } else if (disk.type == 'indexedDB') {
-              const usedBytes = await getIndexedDBUsage(disk.name);
-              const estimate = await navigator.storage.estimate();
-              const totalBytes = estimate.quota || usedBytes;
-              
-              if (meter && text) {
-                  meter.max = totalBytes;
-                  meter.value = usedBytes;
 
-                  // --- Set thresholds for IndexedDB ---
-                  // Removed the broken Math.round logic that caused the permanent green tint
-                  meter.low = totalBytes * 0.50;      
-                  meter.high = totalBytes * 0.85;     
-                  meter.optimum = totalBytes * 0.20;  
-                  
-                  text.innerText = formatBytes(usedBytes) + " / " + formatBytes(totalBytes);
-              }
-              return { usedBytes: usedBytes, totalBytes: totalBytes };
-          } else if (disk.type == 'USB'){
-            const ds = await getDisks();
-            const d1 = ds.find(d=> d.name == disk.name);
-            const usedBytes = d1.used;
-            const totalBytes = d1.total;
-
-
-              if (meter && text) {
-                  meter.max = totalBytes;
-                  meter.value = usedBytes;
-                  
-                  meter.low = totalBytes * 0.50;      // Under 50% is green
-                  meter.high = totalBytes * 0.85;     // Over 85% turns yellow/red
-                  meter.optimum = totalBytes * 0.20;  // Lower usage is better
-                  
-                  text.innerText = formatBytes(usedBytes) + " / " + formatBytes(totalBytes);
-                }
-
-            return { usedBytes: usedBytes, totalBytes: totalBytes }
-          }
-      } catch (e) {
-          console.warn("Quota error: " + e.message);
-          if (text) text.innerText = _("unknown");
-          return { usedBytes: 0, totalBytes: 0 };
-      }
-  }
 
 async function getCacheSizeInBytes(cacheName) {
   const cache = await caches.open(cacheName);
@@ -9553,7 +10194,11 @@ meta += `
       overflow-x:hidden;
   ">
                 <div style="padding-top: 15px;  font-size: 15px; text-align: center; margin-bottom: 15px;">
-                    <img src="${ic}" style="width: 64px; height: 64px; object-fit: contain; ${typeofpath=="dir" && filesColorFolders? `filter: hue-rotate(${sum*10}deg);'`:''} ">
+                        <span style="position:relative; display:inline-block; width:20px; height:20px; margin-right:10px; flex-shrink:0;">
+            <img src="${ic}" style="width: 64px; height: 64px; object-fit: contain; ${typeofpath=="dir" && filesSettings.colorFolders? `filter: hue-rotate(${sum*10}deg);'`:''} ">
+
+        </span>
+                    
                     <p style="font-weight: bold; margin-top: 8px; word-break: break-all; font-size: 15px; user-select:text;">${name}</p>
                 </div>
                 <div style='user-select:text;padding-left:5px;padding-right:5px;line-height: 1.25;overflow-wrap:anywhere; word-break:break-word;'>
@@ -9649,8 +10294,11 @@ meta += `
             <div style="display: flex; flex-direction: row; flex-grow: 1; height: 100%; overflow: hidden;">
                 
                 <!-- Sidebar -->
-                <div style="display: flex; flex-direction: column;   padding-top: 10px; box-sizing: border-box;width: fit-content; background: var(--toolbar-bg) !important; overflow-y: auto; height: 100%;">
-                    <ul style="flex: 1;list-style-type: none; padding:0; margin-top:0; background:transparent;" id="sidebar-${uniqueId}"></ul>
+                <div id="sidebar-${uniqueId}" style="display: flex; flex-direction: column;    box-sizing: border-box;width: fit-content; background: var(--toolbar-bg) !important; overflow-y: auto; height: 100%;">
+                <i style='color:var(--color-text-inactive, darkgray); margin-left:10px; font-size:10px;margin-top:5px;'>${_('devices').toUpperCase()}</i>
+                    <ul style="flex: 0;list-style-type: none; padding:0; margin-top:0; margin-bottom:0; background:transparent;" id="sidebar-disks-${uniqueId}"></ul>
+                <i id='sidebar-folders-lbl-${uniqueId}' style='color:var(--color-text-inactive, darkgray); margin-left:10px; font-size:10px;margin-top:5px;'>${_('folders').toUpperCase()}</i>
+                    <ul style="flex: 1;list-style-type: none; padding:0; margin-top:0px; margin-bottom:0; background:transparent;" id="sidebar-folders-${uniqueId}"></ul>
                 </div>
 
                 <!-- Ресайзер -->
@@ -9669,6 +10317,10 @@ meta += `
             oncreate: async function() { 
                 const fileListContainer = this.body.querySelector(`#file-list-${uniqueId}`);
                 const sideListContainer = this.body.querySelector(`#sidebar-${uniqueId}`);
+                const disksListContainer = this.body.querySelector(`#sidebar-disks-${uniqueId}`);
+                const foldersListContainer = this.body.querySelector(`#sidebar-folders-${uniqueId}`);
+                const foldersLbl = this.body.querySelector(`#sidebar-folders-lbl-${uniqueId}`);
+
                 const fileToolbar = this.body.querySelector(`#file-toolbar-${uniqueId}`);
                 let currentDir = "";
 
@@ -9874,27 +10526,47 @@ const upBtn = document.getElementById(`up-btn-${uniqueId}`);
 const fileCopyBtn = document.getElementById('t_file_copy');
 const fileCutBtn = document.getElementById('t_file_cut');
 const filePasteBtn = document.getElementById('t_file_paste');
+const pinBtn = document.getElementById("pin_btn");
 
 // Clipboard DOM elements
 const clipbrdRow = document.getElementById('files_clipbrd_row');
 const tAfterClipbrd = document.getElementById('t_afterClipbrd');
 const tBeforeClipbrd = document.getElementById('t_beforeClipbrd');
+const tLast = document.getElementById('t_last_item');
 
 // Group all menu buttons into an array for easy iterations
 const allMenuBtns = [
     openBtn, openTxtBtn, renBtn, deleteBtn, setbgBtn,
     autoloadBtn, startupBtn, unzipBtn, zipBtn, getinfoBtn,
-    mountBtn, unmountBtn, formatBtn, printBtn, defaultBtn, fileCopyBtn,fileCutBtn,filePasteBtn
+    mountBtn, unmountBtn, formatBtn, printBtn, defaultBtn, fileCopyBtn,fileCutBtn,filePasteBtn, pinBtn
 ];
 
-const showContextMenu = (e, itemType, fileName) => {
+const showContextMenu = (e, itemType, fileName, mnt=true) => {
     e.preventDefault();
 
  hideMenus(e)
 
 
 
+    document.getElementById("fileM")
+        .querySelectorAll("li > p, label, b")
+        .forEach(item => item.innerText = _(item.innerText));
 
+if (!mnt){
+    // Open legacy menu, which doesn't have file operations
+    // Hide all buttons by default
+    allMenuBtns.forEach(btn => { if (btn) btn.style.display = "none"; });
+    tAfterClipbrd.style.display = 'none';
+    tBeforeClipbrd.style.display = 'none';
+    tLast.style.display = 'none';
+    // Show buttons which don't need mounted drive (always true for pinned folders on sidebar)
+
+if (itemType == 'folder'){
+    pinBtn.style.display = 'block';
+}
+    
+    
+}else{
     // Show all buttons by default
     allMenuBtns.forEach(btn => { if (btn) btn.style.display = "block"; });
 
@@ -9912,6 +10584,7 @@ const showContextMenu = (e, itemType, fileName) => {
         clipbrdRow.style.display = 'none';
         tAfterClipbrd.style.display = 'none';
         tBeforeClipbrd.style.display = 'none';
+        pinBtn.style.display = 'block';
     }
     else if (itemType === "indexedDB" || itemType == 'cache' ){
         allMenuBtns.forEach(btn => { if (btn) btn.style.display = "none"; });
@@ -9944,6 +10617,7 @@ const showContextMenu = (e, itemType, fileName) => {
         clipbrdRow.style.display = 'flex';
         tAfterClipbrd.style.display = 'block';
         tBeforeClipbrd.style.display = 'block';
+        pinBtn.style.display = 'none';
 
         const file = fs.find(f => f.name === fileName || f.path === fileName);
 
@@ -9954,7 +10628,6 @@ printBtn.style.display =
             (
                 (file.type.startsWith("text/") && file.type !== "text/html") ||
                 file.name.endsWith(".md") ||
-                file.name.endsWith(".docx") ||
                 file.type === "application/pdf" ||
                 [
                     "image/jpeg",
@@ -9973,7 +10646,7 @@ printBtn.style.display =
 
         openTxtBtn.style.display =
             (file.type.startsWith("text/") && (file.type !== "text/plain")) ||
-            file.type === "application/vnd.cups-ppd" || file.type === "image/svg+xml" || file.type === "application/x-theme" || file.type === 'application/xslt+xml' || file.type === 'application/json' || file.type == 'application/x-kde-palette'
+            file.type === "application/vnd.cups-ppd" || file.type === "image/svg+xml" || file.type === "application/x-theme" || file.type === 'application/xslt+xml' || file.type === 'application/json' || file.type == 'application/x-kde-palette' || file.type == 'application/vnd.oasis.opendocument.spreadsheet' || file.type == 'application/vnd.oasis.opendocument.text-flat-xml'
                 ? "block" : "none";
         
         renBtn.style.display = (currentDisk && (currentDisk.type == "cookies" || currentDisk.type == "cache")) ? "none": 'block';
@@ -9996,7 +10669,7 @@ printBtn.style.display =
         zipBtn.style.display = "none";
     }
     else {
-        if (currentDisk.mode == 'readwrite') zipBtn.style.display = "block";
+        if (currentDisk && currentDisk.mode == 'readwrite') zipBtn.style.display = "block";
         startupBtn.style.display = "none";
         openTxtBtn.style.display = "none";
         autoloadBtn.style.display = "none";
@@ -10010,12 +10683,13 @@ printBtn.style.display =
         clipbrdRow.style.display = 'none';
         tAfterClipbrd.style.display = 'none';
         tBeforeClipbrd.style.display = 'none';
+        pinBtn.style.display = 'block';
         
-        renBtn.style.display = (currentDisk && currentDisk.type == "cookies") ? "none": 'block';
+        renBtn.style.display = (currentDisk && currentDisk.type == "cookies" || currentDisk.type == "cache") ? "none": 'block';
         
         
     }
-
+}
     const menu = document.getElementById("fileM");
     menu.style.left = e.clientX + "px";
     const rect = menu.getBoundingClientRect();
@@ -10066,11 +10740,30 @@ printBtn.style.display =
                             
 const fileType = file.type;
                           
-if (fileType.startsWith("text/") || !file.name.split("/").pop().substring(1).includes(".") || fileType == "application/x-theme" || fileType == 'application/xslt+xml' || fileType == 'application/json' || fileType == 'application/x-kde-palette' || fileType == "application/vnd.cups-ppd") {
-        const newTextContent = await file.text();
-await openPrintDialog({ text: newTextContent, title: file.name });
+if (fileType.startsWith("text/") && fileType != 'text/vnd.gml' || !file.name.split("/").pop().substring(1).includes(".") || fileType == "application/x-theme" || fileType == 'application/xslt+xml' || fileType == 'application/json' || fileType == 'application/x-kde-palette' || fileType == "application/vnd.cups-ppd") {
+        const newTextContent2 = await file.text();
+await openPrintDialog({ text: newTextContent2, title: file.name });
+}else if (fileType == 'text/vnd.gml') {
+    const content = await file.text();
+    const parsed = parseGML(content);
+    const graph = parsed.graph || parsed;
+    const nodes = [].concat(graph.node || []);
+    const edges = [].concat(graph.edge || []);
 
-    } else {
+    const tmpCnvs = document.createElement('canvas');
+    drawGraph(1600, 1200, { edges, nodes, graph, canvas: tmpCnvs });
+
+    const blob = await new Promise((resolve) => tmpCnvs.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('Canvas export failed (is the canvas 0×0?)');
+
+    const imageFile = new File(
+        [blob],
+        file.name.replace(/\.[^.]+$/, '') + '.png',
+        { type: 'image/png', lastModified: Date.now() }
+    );
+
+    await printFile(imageFile);
+} else {
         
         await printFile(file);
     }
@@ -10150,6 +10843,7 @@ await openPrintDialog({ text: newTextContent, title: file.name });
     await zipFolderUI(filePath,folderName );
         await renderFileList();  
     };
+
     document.getElementById("isAutoload").onchange = (e) => {
         let autoload = [];
         const autoloadString = localStorage.getItem('autoload');
@@ -10165,10 +10859,7 @@ await openPrintDialog({ text: newTextContent, title: file.name });
         }else{
             autoload = []; 
         }
-
         const fileName = e.target.parentNode.getAttribute("data-file");
-
-        
         if (e.target.checked) {
 
             if (!autoload.includes(fileName)) {
@@ -10182,6 +10873,31 @@ await openPrintDialog({ text: newTextContent, title: file.name });
 
 
         localStorage.setItem('autoload', JSON.stringify(autoload));  
+    };
+
+    document.getElementById("pinTgl").onchange = (e) => {
+          const name = e.target.parentNode.getAttribute("data-file");
+          let mode = 0;
+          if (name == 'Local Storage') filesSettings.showLS = e.target.checked;
+          else if (name == "Session Storage") filesSettings.showSS = e.target.checked;
+          else if (name == 'Cookies') filesSettings.showCK = e.target.checked;
+          else{
+            mode = 1;
+            // Folder
+        if (e.target.checked){
+            filesSettings.pinnedFldrs.push({name, drive: currentDisk.name})
+        }else{
+            filesSettings.pinnedFldrs = filesSettings.pinnedFldrs.filter(fldr=>fldr.name !== name);
+        }
+          }
+
+        localStorage.setItem('config/files', JSON.stringify(filesSettings))
+
+        if (mode == 1) loadFoldersList();
+        else if (mode == 0) loadDisksList();
+
+        
+          
     };
     setbgBtn.onclick = (e) => {
                             e.stopPropagation(); // Важливо: запобігає виклику Openf при натисканні X
@@ -10224,7 +10940,6 @@ await openPrintDialog({ text: newTextContent, title: file.name });
             };
 
             deleteRequest.onerror = (err) => {
-              console.warn(`Помилка при видаленні ${fileName}:`, err);
               resolve(); // Resolve anyway to proceed with UI updates
             };
           });
@@ -10252,8 +10967,15 @@ console.log("Cache storage deleted:", deleted); // true if it existed and was re
         const file = fs.find(f => f.name === fileName);
         
         if (isFolder) {
+            let renderAgain = false;
+            if (filesSettings.pinnedFldrs.some(fldr=>fldr.name == fileName && (fldr.drive == currentDisk.name))){
+                console.log('Rendered folders list after deletion.')
+                renderAgain = true;
+            }
           await purgeDir(fileName, true);
+          if (renderAgain) await loadFoldersList()
           await renderFileList();
+
           return;
         }
         
@@ -10267,6 +10989,8 @@ console.log("Cache storage deleted:", deleted); // true if it existed and was re
             localStorage.setItem('autoload', JSON.stringify(autoload));
           }
         }
+
+
 
         const legacyFontTypes = ["application/x-font-ttf", "application/font-woff", "application/vnd.ms-opentype"];
         if (file && (file.type.startsWith("font/") || legacyFontTypes.includes(file.type))) {
@@ -10453,154 +11177,13 @@ filePasteBtn.onclick = async () => {
     }
 };
 
-
-    loadDisksList = async () => {
-    sideListContainer.style.cursor = "wait";
-
-    const disks = await getDisks();
-            sideListContainer.innerHTML = '';
-        disks.forEach(disk => {
-            const li = document.createElement("li");
-            
-            li.classList = "disk";
-            li.name = disk.name;
-
-            if (filesSettings.showLS == false && disk.type == 'localStorage') return;
-            if (filesSettings.showSS == false && disk.type == 'sessionStorage') return;  
-            if (filesSettings.showCK == false && disk.type == 'cookies') return;
-
-
-            li.innerHTML = `
-                <span style="display:flex;align-items:center;">
-                    <img src="${disk.icon}" width="20" style="margin-right:10px;">
-                    ${disk.name} <meter class="quota-progress" style="flex-grow:1;"></meter>
-                        <div class="quota-text" style="font-size: 12px; color: #555;">${_('loading')}</div>
-                </span>
-            `;
-
-            const meter = li.querySelector(".quota-progress");
-    const text = li.querySelector(".quota-text");
-
-    updateDiskQuotaUI(disk, meter, text);
-
-            li.oncontextmenu = async (e) => {
-                e.preventDefault();
-                const li = e.target.closest("li");
-                const diskLi = li.textContent.trim().split(" ");
-                const diskName = diskLi
-                    .splice(0, diskLi.length - 5)
-                    .join(" ")
-                    .trim();
-
-const ds = await getDisks();
-
-                
-                const startupCheckbox = document.getElementById("isStartup");
-                
-                
-                startupCheckbox.checked = (diskName === startupDisk);
-
-                startupCheckbox.onchange = (ev) => {
-                    
-                    if (ev.target.checked) {
-
-                        startupDisk = diskName;
-                        localStorage.setItem("startupDisk", diskName);
-                        localStorage.setItem('startupDiskType',  ds.find(d=>d.name == diskName).type)
-                    } else {
-                        localStorage.removeItem("startupDisk");
-                        localStorage.removeItem("startupDiskType");
-                        startupDisk = null;
-                    }
-                }
-                
-                showContextMenu(e, disk.type, diskName);
-            };
-
-            li.onclick = async () => {
-             
-                open = 1;
-                currentDir = "";
-                                document.getElementById("pathlabel-"+uniqueId).value = '';
-                //fileListContainer.innerHTML = '';
-                try{
-
-                  fileListContainer.style.cursor = "wait";
-    await mountDrive(disk.name);
-                } finally{
-                await renderFileList(); // оновлюємо список
-                  fileListContainer.style.cursor = "";
-                }
-            };
-
-  /*
-  if (currentDisk && li.name == currentDisk.name) {
-      li.style.background = "rgba(0,0,0,100)";
-  }
-  */
-    this.removeClass("hidden")
-            sideListContainer.appendChild(li);
-        });
-    sideListContainer.oncontextmenu = (e) => {
-                e.preventDefault();
-        showContextFldrMenu(e, '');
-    };
-
-    sideListContainer.style.cursor = "";
-    }
-
-    loadDisksList();
     let open = 1;
-
-
-    const hLi = document.createElement("li");
-    hLi.classList = 'header';
-    const hDisplay = document.createElement("span");
-    hDisplay.style.cssText = "flex-grow:1; display:flex; align-items:center;";
-
-
-    let sortCol = 'name';
-    let sortDir = 1;
-
-    hDisplay.onclick = (e) => {
-        const colMod = e.target.id.split('-')[1];
-        if (!colMod) return;
-
-        if (sortCol === colMod) {
-            sortDir *= -1;
-        } else {
-            sortCol = colMod;
-            sortDir = 1;
-        }
-
-        if (colMod == 'name') fs.sort((a, b) => sortDir * a.name.localeCompare(b.name));
-        if (colMod == 'size') fs.sort((a, b) => sortDir * (a.size - b.size));
-        if (colMod == 'lastModified') fs.sort((a, b) => sortDir * (a.lastModified - b.lastModified));
-        if (colMod == 'type') fs.sort((a, b) => sortDir * a.type.localeCompare(b.type));
-
-        renderFileList();
-    };
-    hLi.appendChild(hDisplay);
-cookieStore.addEventListener("change", event => {
-    renderFileList()
-    loadDisksList();
-});
-  window.addEventListener("update", (e) => {
-  
-    
-    if (e.detail.type == "drives"){
-        renderFileList()
-    }else{
-loadDisksList();
-    }
-  });
-
     const renderFileList = async () => {
       fileListContainer.innerHTML = ``;
       
       if (open){
         hDisplay.innerHTML = `<p id='sort-name-${uniqueId}'>${_('name')}</p>`;
-        filesCols.forEach(col => {
+        filesSettings.filesCols.forEach(col => {
             if (col === 'lastModified') {
                 hDisplay.innerHTML += `<p id='sort-lastModified-${uniqueId}'>${_('lastModified')}</p>`;
             } 
@@ -10671,7 +11254,7 @@ loadDisksList();
 
     folderDisplay.innerHTML = `
         <span style="position:relative; display:inline-block; width:20px; height:20px; margin-right:10px; flex-shrink:0;">
-            <img ${filesColorFolders?`style='filter: hue-rotate(${sum*10}deg);'`:""} src="${icns.folder}" width="20" height="20">
+            <img ${filesSettings.colorFolders?`style='filter: hue-rotate(${sum*10}deg);'`:""} src="${icns.folder}" width="20" height="20">
             <span id="${safeId}" style="
                 position:absolute;
                 top:3px;
@@ -10689,7 +11272,7 @@ loadDisksList();
     `;
 
     
-    filesCols.forEach(col => {
+    filesSettings.filesCols.forEach(col => {
         if (col === 'lastModified') {
 
             const timestamps = insideFiles.map(f => {
@@ -10720,8 +11303,11 @@ loadDisksList();
         e.preventDefault();
         const li = e.target.closest("li");
         const folderName1 = currentDir == "" ? folderName.trim() + "/" : currentDir + "/" + folderName.trim() + "/";
-        
-        
+                    const pinTgl = document.getElementById("pinTgl");
+                if (pinTgl) {
+                    pinTgl.checked = filesSettings.pinnedFldrs.some(f => f.name === folderName1 && f.drive === currentDisk.name);
+                }
+
         showContextMenu(e, "folder", folderName1);
     };
 
@@ -10743,7 +11329,7 @@ loadDisksList();
             
     const isHidden = folderName.startsWith(".");
 
-    if (!isHidden || filesShowHidden) {
+    if (!isHidden || filesSettings.showHidden) {
 
         fileListContainer.appendChild(li);
 
@@ -10793,7 +11379,7 @@ try{
                 <img src="${ic}" width="20" style="margin-right:10px;">
                 <p>${file.name.split("/").pop()}</p>
             `;
-            filesCols.forEach(col => {
+            filesSettings.filesCols.forEach(col => {
             if (col === 'lastModified') {
 
                 const formattedDate = new Intl.DateTimeFormat(dateLang, localeFormat)
@@ -10853,7 +11439,7 @@ try{
     const isAllowedByPicker = (mode === 'file' || mode === 'save') ? isFileAllowed(file.name, opts) : true;
 
     // Твоя логіка відображення
-    if ((!isHidden || filesShowHidden) && isAllowedByPicker) {
+    if ((!isHidden || filesSettings.showHidden) && isAllowedByPicker) {
 
         fileListContainer.appendChild(li);
 
@@ -10867,6 +11453,225 @@ try{
                 
     fileListContainer.style.cursor = "";
                 };
+
+const loadDisksList = async ()=>{
+
+    disksListContainer.style.cursor = "wait";
+
+    const disks = await getDisks();
+            disksListContainer.innerHTML = '';
+        disks.forEach(disk => {
+            const li = document.createElement("li");
+            
+            li.className = "disk";
+            li.name = disk.name;
+
+            if (filesSettings.showLS == false && disk.type == 'localStorage') return;
+            if (filesSettings.showSS == false && disk.type == 'sessionStorage') return;  
+            if (filesSettings.showCK == false && disk.type == 'cookies') return;
+
+
+            li.innerHTML = `
+                <span style="display:flex;align-items:center;">
+                    <img src="${disk.icon}" width="20" style="margin-right:10px;">
+                    ${disk.name} 
+                        <div class="quota-text" style="flex:1;font-size: 12px; color: var(--color-text-secondary);margin-left:5px; text-align:right;">${_('loading')}</div>
+                </span>
+            `;
+
+
+    const text = li.querySelector(".quota-text");
+    text.innerText = formatBytes(disk.used)+"/"+formatBytes(disk.total);
+
+
+            li.oncontextmenu = async (e) => {
+                e.preventDefault();
+                const li = e.target.closest("li");
+                const diskLi = li.textContent.trim().split(" ");
+                const diskName = diskLi
+                    .splice(0, diskLi.length - 5)
+                    .join(" ")
+                    .trim();
+
+const ds = await getDisks();
+
+                
+                const startupCheckbox = document.getElementById("isStartup");
+                
+                
+                startupCheckbox.checked = (diskName === startupDisk);
+
+                startupCheckbox.onchange = (ev) => {
+                    
+                    if (ev.target.checked) {
+
+                        startupDisk = diskName;
+                        localStorage.setItem("startupDisk", diskName);
+                        localStorage.setItem('startupDiskType',  ds.find(d=>d.name == diskName).type)
+                    } else {
+                        localStorage.removeItem("startupDisk");
+                        localStorage.removeItem("startupDiskType");
+                        startupDisk = null;
+                    }
+                }
+                                    const pinTgl = document.getElementById("pinTgl");
+                if (pinTgl) {
+                    pinTgl.checked = (filesSettings.showLS == true && disk.type == 'localStorage' || filesSettings.showSS == true && disk.type == 'sessionStorage' || filesSettings.showCK == true && disk.type == 'cookies')
+                }
+                
+                showContextMenu(e, disk.type, diskName);
+            };
+
+            li.onclick = async () => {
+             
+                open = 1;
+                currentDir = "";
+                                document.getElementById("pathlabel-"+uniqueId).value = '';
+                //fileListContainer.innerHTML = '';
+                try{
+
+                  fileListContainer.style.cursor = "wait";
+    await mountDrive(disk.name);
+                } finally{
+                await renderFileList(); // оновлюємо список
+                  fileListContainer.style.cursor = "";
+                }
+            };
+
+  /*
+  if (currentDisk && li.name == currentDisk.name) {
+      li.style.background = "rgba(0,0,0,100)";
+  }
+  */
+    this.removeClass("hidden")
+            disksListContainer.appendChild(li);
+        });
+
+
+    disksListContainer.style.cursor = "";
+}
+
+const loadFoldersList = () =>{
+
+
+            // Load pinned folders
+    foldersListContainer.innerHTML = '';
+    foldersListContainer.style.cursor = "wait";
+
+    try {
+        const items = filesSettings.pinnedFldrs;
+
+
+        items.forEach(item => {
+            const li = document.createElement("li");
+            li.className = "item";
+            li.name = item.name;
+
+
+
+            li.innerHTML = `
+                <span style="display:flex;align-items:center; margin-right:10px; ">
+                    <img width="20" style='margin-right:10px;' src="${icns.folder}" width="20" style="margin-right:10px;">
+                    ${item.name}
+                </span>
+            `;
+
+            li.oncontextmenu = (e) => {
+                e.preventDefault();
+            const pinTgl = document.getElementById("pinTgl");
+                if (pinTgl) {
+                    pinTgl.checked = filesSettings.pinnedFldrs.some(f => f.name === item.name && f.drive === item.drive);
+                }
+        showContextMenu(e, "folder", item.name, false);
+            };
+
+            li.onclick = async () => {
+                if (!currentDisk || currentDisk.name != item.drive) await mountDrive(item.drive);
+                open = 1;
+                currentDir = item.name.split('/')[0];
+                 await renderFileList();
+                 document.getElementById("pathlabel-"+uniqueId).value = item.name.split('/')[0];
+
+            };
+
+            foldersListContainer.appendChild(li);
+        });
+    } finally {
+        foldersListContainer.style.cursor = "";
+    }
+
+    // After loading
+    foldersListContainer.style.cursor = "";
+    if (foldersListContainer.innerHTML.trim() == ''){
+        foldersLbl.style.display = 'none';
+    }else{
+        foldersLbl.style.display = 'block';
+    }
+}
+
+const loadFilesSidebar = async () => {
+            sideListContainer.oncontextmenu = (e) => {
+                e.preventDefault();
+                showContextFldrMenu(e, '');
+            };
+        
+        await loadDisksList();
+        await loadFoldersList()
+};
+
+
+
+    
+
+
+
+    await loadFilesSidebar();
+
+
+
+    const hLi = document.createElement("li");
+    hLi.classList = 'header';
+    const hDisplay = document.createElement("span");
+    hDisplay.style.cssText = "flex-grow:1; display:flex; align-items:center;";
+
+
+    let sortCol = 'name';
+    let sortDir = 1;
+
+    hDisplay.onclick = (e) => {
+        const colMod = e.target.id.split('-')[1];
+        if (!colMod) return;
+
+        if (sortCol === colMod) {
+            sortDir *= -1;
+        } else {
+            sortCol = colMod;
+            sortDir = 1;
+        }
+
+        if (colMod == 'name') fs.sort((a, b) => sortDir * a.name.localeCompare(b.name));
+        if (colMod == 'size') fs.sort((a, b) => sortDir * (a.size - b.size));
+        if (colMod == 'lastModified') fs.sort((a, b) => sortDir * (a.lastModified - b.lastModified));
+        if (colMod == 'type') fs.sort((a, b) => sortDir * a.type.localeCompare(b.type));
+
+        renderFileList();
+    };
+    hLi.appendChild(hDisplay);
+cookieStore.addEventListener("change", event => {
+    renderFileList()
+    loadDisksList();
+});
+  window.addEventListener("update", (e) => {
+  
+    
+    if (e.detail.type == "drives"){
+        renderFileList()
+    }else{
+loadDisksList();
+    }
+  });
+
+
                 document.getElementById("create_item_btn").onclick = async (e) => {
           const li = e.target.closest('li');
         if (open && li.dataset.mode == 'file'){
@@ -10956,44 +11761,45 @@ try{
 
               <!-- Action Buttons -->
               <div>
-                  <button id="save1" class='ok' style="padding: 4px 12px;" disabled>${_('ok')}</button>
+                  <button id="save1" class='ok' style="padding: 4px 12px;">${_('ok')}</button>
                   <button id="cancel1" style="padding: 4px 12px;">${_('cancel')}</button>
               </div>
           </div>
           `, 
-          oncreate: function() {
-              let appIns = null;
-              const $ = (selector) => this.body ? this.body.querySelector(selector) : document.querySelector(selector);
+              oncreate: function() {
+                  let appIns = null;
+                  const $ = (selector) => this.body ? this.body.querySelector(selector) : document.querySelector(selector);
 
-              const datalist = $('#apps');
-              const nameInput = $('#name');
-              const saveBtn = $('#save1');
-              const cancelBtn = $('#cancel1');
+                  const datalist = $('#apps');
+                  const nameInput = $('#name');
+                  const saveBtn = $('#save1');
+                  const cancelBtn = $('#cancel1');
 
-              // Populate Datalist
-              apps.forEach(a => {
-                  const el = document.createElement('option');
-                  el.value = _(a.name);
-                  datalist.appendChild(el);
-              });
+                  // Populate Datalist
+                  apps.forEach(a => {
+                      const el = document.createElement('option');
+                      el.value = _(a.name);
+                      datalist.appendChild(el);
+                  });
 
-              // Listen directly to the <input> element, not the <datalist>
-              nameInput.oninput = () => {
-                  const selectedVal = nameInput.value.trim();
-                  appIns = apps.find(a => _(a.name) === selectedVal || a.name === selectedVal) || null;
-                  saveBtn.disabled = !appIns;
-              };
+                  // Listen directly to the <input> element, not the <datalist>
+                  nameInput.oninput = () => {
+                    nameInput.classList.remove('error')
+                      const selectedVal = nameInput.value.trim();
+                      appIns = apps.find(a => _(a.name) === selectedVal || a.name === selectedVal) || null;
+                  };
 
-              cancelBtn.onclick = () => this.close();
+                  cancelBtn.onclick = () => this.close();
 
-              saveBtn.onclick = () => {
-
-                  if (appIns) {
-                      openApp(appIns);
-                      this.close();
-                  }
-              };
-          }
+saveBtn.onclick = () => {
+    if (!nameInput.checkValidity()) {
+        nameInput.classList.add('error'); // or rely on :invalid / :user-invalid in CSS
+        return;
+    }
+    openApp(appIns);
+    this.close();
+};
+              }
       })})
     
 
@@ -11328,7 +12134,25 @@ try{
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-#sett_app .column{margin-top:15px;display:flex;justify-content:flex-start;gap:10px;width:max-content}#sett_app .content-container{grid-area:content;height:100%;overflow-y:auto;  background:var(--bg-color)}#sett_app .sidebar-handle{display:none}#sett_app .sidebar-tab:before{content:"» "}#sett_app .sidebar-tab:hover{text-decoration:underline}#sett_app .sidebar-tab.active{font-weight:bold;color:var(--accent-color,#4a9eff)}#sett_app .sidebar-separator{border-top:1px solid var(--input-border);margin:6px 0}@container (width < 700px){main.sidebar-collapsed{grid-template-columns:50px 1fr}main.sidebar-collapsed .settings-toolbar{align-items:center}main.sidebar-collapsed .settings-toolbar .sidebar-tab,main.sidebar-collapsed .settings-toolbar .sidebar-separator{display:none!important}#sett_app .sidebar-handle{display:block!important;width:100%;padding:8px 0;cursor:pointer;text-align:center}}#sett_app .settright{display:flex;align-items:center;gap:5px;align-self:flex-end;width:calc(fit-content() + 500px);margin-right:5px}#sett_app .settright select{box-sizing:border-box;width:auto!important}.settright>div{flex-direction:row;gap:5px}#sett_app .setting-row:not(.settright):not(.column){display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:40px;padding:2.5px 5px;transition:background-color .15s ease-in-out}#sett_app #sett_app .setting-row:not(.column):not(.settright):hover{background-color:var(--button-border);border-radius:var(--radius-sm);}#sett_app .setting-label{flex-grow:1;width:100%;font-size:16px;line-height:1.3}@keyframes fadeIn{0%{opacity:0}100%{opacity:1}}#sett_app #kbrd{display:block;width:100%;height:auto;margin:0;border-bottom-left-radius:5px;transition:opacity .5s ease-in-out;opacity:1;margin-right:-15px;}#sett_app #dispImg{--r:960/540;aspect-ratio:var(--r);height:min(90%,min(960px,90vh*(var(--r))));width:90%;text-align:center;justify-content:center;background:#000;color:#fff;border:darkgrey 2.5px solid;padding:5px;border-radius:5px;}#sett_app .crt{position:relative;animation:textShadow 1.6s infinite}.crt:before{content:" ";display:block;position:absolute;top:0;left:0;bottom:0;right:0;background:linear-gradient(rgba(18,16,16,0) 50%,rgba(0,0,0,.25) 50%),linear-gradient(90deg,rgba(255,0,0,.06),rgba(0,255,0,.02),rgba(0,0,255,.06));z-index:2;background-size:100% 2px,3px 100%;pointer-events:none}@keyframes flicker{0%{opacity:.27861}5%{opacity:.34769}10%{opacity:.23604}15%{opacity:.90626}20%{opacity:.18128}25%{opacity:.83891}30%{opacity:.65583}35%{opacity:.67807}40%{opacity:.26559}45%{opacity:.84693}50%{opacity:.96019}55%{opacity:.08594}60%{opacity:.20313}65%{opacity:.71988}70%{opacity:.53455}75%{opacity:.37288}80%{opacity:.71428}85%{opacity:.70419}90%{opacity:.7003}95%{opacity:.36108}100%{opacity:.24387}}.crt:after{content:" ";display:block;position:absolute;top:0;left:0;bottom:0;right:0;background:rgba(18,16,16,.1);opacity:0;z-index:2;pointer-events:none;animation:flicker .15s infinite}@keyframes textShadow{0%{text-shadow:.4389924193300864px 0 1px rgba(0,30,255,.5),-.4389924193300864px 0 1px rgba(255,0,80,.3),0 0 3px}5%{text-shadow:2.7928974010788217px 0 1px rgba(0,30,255,.5),-2.7928974010788217px 0 1px rgba(255,0,80,.3),0 0 3px}10%{text-shadow:.02956275843481219px 0 1px rgba(0,30,255,.5),-.02956275843481219px 0 1px rgba(255,0,80,.3),0 0 3px}15%{text-shadow:.40218538552878136px 0 1px rgba(0,30,255,.5),-.40218538552878136px 0 1px rgba(255,0,80,.3),0 0 3px}20%{text-shadow:3.4794037899852017px 0 1px rgba(0,30,255,.5),-3.4794037899852017px 0 1px rgba(255,0,80,.3),0 0 3px}25%{text-shadow:1.6125630401149584px 0 1px rgba(0,30,255,.5),-1.6125630401149584px 0 1px rgba(255,0,80,.3),0 0 3px}30%{text-shadow:.7015590085143956px 0 1px rgba(0,30,255,.5),-.7015590085143956px 0 1px rgba(255,0,80,.3),0 0 3px}35%{text-shadow:3.896914047650351px 0 1px rgba(0,30,255,.5),-3.896914047650351px 0 1px rgba(255,0,80,.3),0 0 3px}40%{text-shadow:3.870905614848819px 0 1px rgba(0,30,255,.5),-3.870905614848819px 0 1px rgba(255,0,80,.3),0 0 3px}45%{text-shadow:2.231056963361899px 0 1px rgba(0,30,255,.5),-2.231056963361899px 0 1px rgba(255,0,80,.3),0 0 3px}50%{text-shadow:.08084290417898504px 0 1px rgba(0,30,255,.5),-.08084290417898504px 0 1px rgba(255,0,80,.3),0 0 3px}55%{text-shadow:2.3758461067427543px 0 1px rgba(0,30,255,.5),-2.3758461067427543px 0 1px rgba(255,0,80,.3),0 0 3px}60%{text-shadow:2.202193051050636px 0 1px rgba(0,30,255,.5),-2.202193051050636px 0 1px rgba(255,0,80,.3),0 0 3px}65%{text-shadow:2.8638780614874975px 0 1px rgba(0,30,255,.5),-2.8638780614874975px 0 1px rgba(255,0,80,.3),0 0 3px}70%{text-shadow:.48874025155497314px 0 1px rgba(0,30,255,.5),-.48874025155497314px 0 1px rgba(255,0,80,.3),0 0 3px}75%{text-shadow:1.8948491305757957px 0 1px rgba(0,30,255,.5),-1.8948491305757957px 0 1px rgba(255,0,80,.3),0 0 3px}80%{text-shadow:.0833037308038857px 0 1px rgba(0,30,255,.5),-.0833037308038857px 0 1px rgba(255,0,80,.3),0 0 3px}85%{text-shadow:.09769827255241735px 0 1px rgba(0,30,255,.5),-.09769827255241735px 0 1px rgba(255,0,80,.3),0 0 3px}90%{text-shadow:3.443339761481782px 0 1px rgba(0,30,255,.5),-3.443339761481782px 0 1px rgba(255,0,80,.3),0 0 3px}95%{text-shadow:2.1841838852799786px 0 1px rgba(0,30,255,.5),-2.1841838852799786px 0 1px rgba(255,0,80,.3),0 0 3px}100%{text-shadow:2.6208764473832513px 0 1px rgba(0,30,255,.5),-2.6208764473832513px 0 1px rgba(255,0,80,.3),0 0 3px}}#sett_app h2,#sett_app h1,#sett_app p,#sett_app label,#sett_app span,.setting-label,.sidebar-tab,.usage-list{color:var(--color-text-primary)}
+#sett_app .column{margin-top:15px;display:flex;justify-content:flex-start;gap:10px;width:max-content}#sett_app .content-container{grid-area:content;height:100%;overflow-y:auto;  background:var(--bg-color)}#sett_app .sidebar-handle{display:none}#sett_app .sidebar-tab:before{content:"» "}#sett_app .sidebar-tab:hover{text-decoration:underline}#sett_app .sidebar-tab.active{font-weight:bold;color:var(--accent-color,#4a9eff)}#sett_app .sidebar-separator{border-top:1px solid var(--input-border);margin:6px 0}@container (width < 700px){main.sidebar-collapsed{grid-template-columns:50px 1fr}main.sidebar-collapsed .settings-toolbar{align-items:center}main.sidebar-collapsed .settings-toolbar .sidebar-tab,main.sidebar-collapsed .settings-toolbar .sidebar-separator{display:none!important}#sett_app .sidebar-handle{display:block!important;width:100%;padding:8px 0;cursor:pointer;text-align:center}}#sett_app .settright{display:flex;align-items:center;gap:5px;align-self:flex-end;width:calc(fit-content() + 500px);margin-right:5px}#sett_app .settright select{box-sizing:border-box;width:auto!important}.settright>div{flex-direction:row;gap:5px}#sett_app .setting-row:not(.settright):not(.column){display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:40px;padding:2.5px 5px;transition:background-color .15s ease-in-out}#sett_app #sett_app .setting-row:not(.column):not(.settright):hover{background-color:var(--button-border);border-radius:var(--radius-sm);}#sett_app .setting-label{flex-grow:1;width:100%;font-size:16px;line-height:1.3}@keyframes fadeIn{0%{opacity:0}100%{opacity:1}}#sett_app #kbrd{display:block;width:100%;height:auto;margin:0;border-bottom-left-radius:5px;transition:opacity .5s ease-in-out;opacity:1;margin-right:-15px;}
+#sett_app #dispImg{
+  --r:960/540;
+  aspect-ratio:var(--r);
+  height:min(90%,min(960px,90vh*(var(--r))));
+  width:90%;
+  text-align:center;
+  justify-content:center;
+  color:#fff;
+  border:darkgrey 2.5px solid;
+  padding:5px;
+  border-radius:5px;
+
+  background:#000;                 /* shorthand first */
+  background-size:contain;         /* whole image visible, letterboxed */
+  background-position:center;
+  background-repeat:no-repeat;
+}
+#sett_app .crt{position:relative;animation:textShadow 1.6s infinite}.crt:before{content:" ";display:block;position:absolute;top:0;left:0;bottom:0;right:0;background:linear-gradient(rgba(18,16,16,0) 50%,rgba(0,0,0,.25) 50%),linear-gradient(90deg,rgba(255,0,0,.06),rgba(0,255,0,.02),rgba(0,0,255,.06));z-index:2;background-size:100% 2px,3px 100%;pointer-events:none}@keyframes flicker{0%{opacity:.27861}5%{opacity:.34769}10%{opacity:.23604}15%{opacity:.90626}20%{opacity:.18128}25%{opacity:.83891}30%{opacity:.65583}35%{opacity:.67807}40%{opacity:.26559}45%{opacity:.84693}50%{opacity:.96019}55%{opacity:.08594}60%{opacity:.20313}65%{opacity:.71988}70%{opacity:.53455}75%{opacity:.37288}80%{opacity:.71428}85%{opacity:.70419}90%{opacity:.7003}95%{opacity:.36108}100%{opacity:.24387}}.crt:after{content:" ";display:block;position:absolute;top:0;left:0;bottom:0;right:0;background:rgba(18,16,16,.1);opacity:0;z-index:2;pointer-events:none;animation:flicker .15s infinite}@keyframes textShadow{0%{text-shadow:.4389924193300864px 0 1px rgba(0,30,255,.5),-.4389924193300864px 0 1px rgba(255,0,80,.3),0 0 3px}5%{text-shadow:2.7928974010788217px 0 1px rgba(0,30,255,.5),-2.7928974010788217px 0 1px rgba(255,0,80,.3),0 0 3px}10%{text-shadow:.02956275843481219px 0 1px rgba(0,30,255,.5),-.02956275843481219px 0 1px rgba(255,0,80,.3),0 0 3px}15%{text-shadow:.40218538552878136px 0 1px rgba(0,30,255,.5),-.40218538552878136px 0 1px rgba(255,0,80,.3),0 0 3px}20%{text-shadow:3.4794037899852017px 0 1px rgba(0,30,255,.5),-3.4794037899852017px 0 1px rgba(255,0,80,.3),0 0 3px}25%{text-shadow:1.6125630401149584px 0 1px rgba(0,30,255,.5),-1.6125630401149584px 0 1px rgba(255,0,80,.3),0 0 3px}30%{text-shadow:.7015590085143956px 0 1px rgba(0,30,255,.5),-.7015590085143956px 0 1px rgba(255,0,80,.3),0 0 3px}35%{text-shadow:3.896914047650351px 0 1px rgba(0,30,255,.5),-3.896914047650351px 0 1px rgba(255,0,80,.3),0 0 3px}40%{text-shadow:3.870905614848819px 0 1px rgba(0,30,255,.5),-3.870905614848819px 0 1px rgba(255,0,80,.3),0 0 3px}45%{text-shadow:2.231056963361899px 0 1px rgba(0,30,255,.5),-2.231056963361899px 0 1px rgba(255,0,80,.3),0 0 3px}50%{text-shadow:.08084290417898504px 0 1px rgba(0,30,255,.5),-.08084290417898504px 0 1px rgba(255,0,80,.3),0 0 3px}55%{text-shadow:2.3758461067427543px 0 1px rgba(0,30,255,.5),-2.3758461067427543px 0 1px rgba(255,0,80,.3),0 0 3px}60%{text-shadow:2.202193051050636px 0 1px rgba(0,30,255,.5),-2.202193051050636px 0 1px rgba(255,0,80,.3),0 0 3px}65%{text-shadow:2.8638780614874975px 0 1px rgba(0,30,255,.5),-2.8638780614874975px 0 1px rgba(255,0,80,.3),0 0 3px}70%{text-shadow:.48874025155497314px 0 1px rgba(0,30,255,.5),-.48874025155497314px 0 1px rgba(255,0,80,.3),0 0 3px}75%{text-shadow:1.8948491305757957px 0 1px rgba(0,30,255,.5),-1.8948491305757957px 0 1px rgba(255,0,80,.3),0 0 3px}80%{text-shadow:.0833037308038857px 0 1px rgba(0,30,255,.5),-.0833037308038857px 0 1px rgba(255,0,80,.3),0 0 3px}85%{text-shadow:.09769827255241735px 0 1px rgba(0,30,255,.5),-.09769827255241735px 0 1px rgba(255,0,80,.3),0 0 3px}90%{text-shadow:3.443339761481782px 0 1px rgba(0,30,255,.5),-3.443339761481782px 0 1px rgba(255,0,80,.3),0 0 3px}95%{text-shadow:2.1841838852799786px 0 1px rgba(0,30,255,.5),-2.1841838852799786px 0 1px rgba(255,0,80,.3),0 0 3px}100%{text-shadow:2.6208764473832513px 0 1px rgba(0,30,255,.5),-2.6208764473832513px 0 1px rgba(255,0,80,.3),0 0 3px}}#sett_app h3,#sett_app h2,#sett_app h1,#sett_app p,#sett_app label,#sett_app span,.setting-label,.sidebar-tab,.usage-list{color:var(--color-text-primary)} #sett_app h1 span, #sett_app h2 span, #sett_app h3 span {padding-right:10px !important;}
 #battery_graph {
     width: 100%;
     height: 250px;
@@ -11418,7 +12242,7 @@ try{
         <div class="sidebar-separator"></div>
 
         <a class="sidebar-tab" data-page="devices" data-i18n="devices"></a>
-        <a class="sidebar-tab ${HW_API ? '' : 'disabled'}" data-page="network" data-i18n="network"></a>
+        <a class="sidebar-tab" data-page="network" data-i18n="network"></a>
         <a class="sidebar-tab" data-page="display" data-i18n="display"></a>
         <a class="sidebar-tab" data-page="keyboard" data-i18n="keyboard"></a>
         <a class="sidebar-tab" data-page="battery" data-i18n="battery"></a>
@@ -11520,17 +12344,21 @@ try{
 
 <!-- NETWORK -->
 <div class="page" data-page="network" hidden>
+            <span class="${HW_API ? '' : 'disabled'}">
     <h2>Wi-Fi</h2>
     <ul id="wifi_list" style="list-style-type: none;"></ul>
     
-    <h2>Bluetooth <input type='checkbox' id='bt_toggle'> </h2>
+    <h2>Bluetooth <input type='checkbox' ${HW_API ? '' : 'disabled'} id='bt_toggle'> </h2>
     <ul id="bt_list" style="list-style-type: none;"></ul>
-
+            </span>
+    <h2 style='margin-bottom:5px;'><span data-i18n='locator'></span> <input type='checkbox' id='loc_toggle'> </h2>
+            <h3 style='margin-top:10px;'><span data-i18n='usage'></span><button id='loc_his_clr' data-i18n='clear'></button></h3>
+            <ul id="loc_list" style="list-style-type: none;"></ul>
 </div>
 
               <div class="page" data-page="usage" hidden>
 
-            <h2 data-i18n="usage"></h2>
+            <h2 data-i18n='usage'></h2>
             <label for='allowUsage' data-i18n="allow_usage"></label>
             <input id="allowUsage"  type="checkbox"> 
 
@@ -11579,6 +12407,8 @@ try{
                         <option value="crt">CRT</option>
                     </select>
                 </div>
+            <button id='setBgFromSett' data-i18n='set_bg_btn'></button>
+
 
             </div>
         </div>
@@ -11978,7 +12808,36 @@ thmSelect.onchange = async () => {
     const kbrdImg = document.getElementById('kbrd');
     const screenTypeSelect = document.getElementById("screenTypeSelect");
     const dispImg = document.getElementById('dispImg');
+    const setBgFromSett = document.getElementById('setBgFromSett');
 
+
+                setBgFromSett.onclick = async ()=>{
+  try {
+    const [handle] = await window.showOpenFilePicker({
+      multiple: false,
+      excludeAcceptAllOption: false,
+      types: [{
+        description: 'Images',
+        accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'] }
+      }]
+    });
+    const file = await handle.getFile(); // size/type/lastModified are here
+
+    const match = fs.find(f =>
+      f.size === file.size &&
+      f.type === file.type &&
+      f.lastModified === file.lastModified
+    );
+
+    if (match) localStorage.setItem('backgroundFile', match.name);
+    await loadBackground();
+    showPage('display');
+        dispImg.style.backgroundImage = body.style.backgroundImage;
+  } catch (e) {
+    if (e.name !== 'AbortError') console.error('Background pick failed:', e); // AbortError = user cancelled
+  }
+
+    }
 
     const wb = this;
 
@@ -12299,7 +13158,16 @@ labels.push(
 if (name == "network") {
     const container = document.getElementById("wifi_list");
     container.innerHTML = "";
+    const btContainer = document.getElementById("bt_list");
+    btContainer.innerHTML = "";
+    const locContainer = document.getElementById("loc_list");
+    locContainer.innerHTML = "";
+
+
+
+    if (HW_API){
     try{
+
     const networks = await WlanUtils.list();
 
     networks.forEach(network => {
@@ -12370,18 +13238,14 @@ if (network.active) {
      container.innerHTML = _("not_found");
   }
 const btToggle = document.getElementById('bt_toggle');
-if (!HW_API){
-btToggle.disabled = true;
-    return;
-}
+
 btToggle.checked  = await BluetoothUtils.status;
 btToggle.onchange = async ()=>{
   await BluetoothUtils.power(btToggle.checked);
   await showPage("network");
 }
 
-  const btContainer = document.getElementById("bt_list");
-btContainer.innerHTML = "";
+
 
 try {
   const devices = await BluetoothUtils.list();
@@ -12435,6 +13299,42 @@ try {
 } catch (e) {
   btContainer.innerHTML = _("not_found");
 }
+
+}
+// locator UI and Flow
+
+const locToggle = document.getElementById('loc_toggle');
+const locClr = document.getElementById('loc_his_clr');
+locClr.onclick = () => {
+    localStorage.setItem('.locUsage', '[]');
+    showPage('network');
+}
+      locToggle.checked = locatorState;
+      locToggle.onchange = () => {
+        locatorState = locToggle.checked;
+        localStorage.setItem('locatorState', JSON.stringify(locToggle.checked))
+      }
+      locContainer.innerHTML = JSON.parse(localStorage.getItem('.locUsage') || '[]').map(entry => {
+  let label;
+  switch (entry.mode) {
+    case true:  label = _('started_tracking_geolocation'); break;
+    case false: label = _('stopped_tracking_geolocation'); break;
+    default:    label = _('accessed_geolocation');
+  }
+
+
+  const formattedDate = new Intl.DateTimeFormat(dateLang, localeFormat)
+    .format(new Date(entry.timestamp || Date.now()));
+let prefix_on;
+switch (dateLang){
+case 'fr-FR': prefix_on = 'le '; break;
+case 'en-US': prefix_on = 'on '; break;
+default: prefix_on = ''; break;
+}
+
+
+  return `<li><b>${entry.name}</b> ${label} ${prefix_on + formattedDate}</li>`;
+}).join('');
 }
     if (name == 'themes'){
       hideWinContentOnTransformCheck = document.getElementById("hideWinContentOnTransform");
@@ -12473,74 +13373,75 @@ if (name == "files") {
     const showSSCheck = document.getElementById("showSSCheck");
     const showCKCheck = document.getElementById("showCKCheck");
 
-    showHiddenCheck.checked = filesShowHidden;
-    colorFoldersCheck.checked = filesColorFolders;
-    showLSCheck.checked = filesShowLS;
-    showSSCheck.checked = filesShowSS;
-    showCKCheck.checked = filesShowCK;
+    showHiddenCheck.checked = filesSettings.showHidden;
+    colorFoldersCheck.checked = filesSettings.colorFolders;
+    showLSCheck.checked = filesSettings.showLS;
+    showSSCheck.checked = filesSettings.showSS;
+    showCKCheck.checked = filesSettings.showCK;
 
-    let tmpFilesCols = filesCols;
-    const filesColsList = document.getElementById("files-cols-lst");
+    let tmpfilesSettingsFilesCols = filesSettings.filesCols;
+    const filesSettingsFilesColsList = document.getElementById("files-cols-lst");
 
     // De-duplicate columns using a Set
     const uniqueCols = [...new Set([
-        "name", "lastModified", "type", "size", ...filesCols
+        "name", "lastModified", "type", "size", ...filesSettings.filesCols
     ])];
 
-    filesColsList.items = uniqueCols.map(col => ({
+    filesSettingsFilesColsList.items = uniqueCols.map(col => ({
         id: col,
         label: _(col),
-        checked: filesCols.includes(col) || col == "name",
+        checked: filesSettings.filesCols.includes(col) || col == "name",
         disabled: col == "name"
     }));
 
     // Save all file settings
     const saveFilesSettings = () => {
         filesSettings = {
-            filesCols: tmpFilesCols,
-            showHidden: filesShowHidden,
-            colorFolders: filesColorFolders,
-            showLS: filesShowLS,
-            showSS: filesShowSS,
-            showCK: filesShowCK
+            filesCols: tmpfilesSettingsFilesCols,
+            showHidden: filesSettings.showHidden,
+            colorFolders: filesSettings.colorFolders,
+            showLS: filesSettings.showLS,
+            showSS: filesSettings.showSS,
+            showCK: filesSettings.showCK,
+            pinnedFldrs: filesSettings.pinnedFldrs
         };
 
         localStorage.setItem("config/files", JSON.stringify(filesSettings));
     };
 
-    filesColsList.addEventListener("list-updated", () => {
-        tmpFilesCols = filesColsList.items
+    filesSettingsFilesColsList.addEventListener("list-updated", () => {
+        tmpfilesSettingsDilesCols = filesSettings.filesColsList.items
             .filter(col => col.checked && !col.disabled)
             .map(col => col.id);
 
-        filesCols = tmpFilesCols;
+        filesSettings.filesCols = tmpfilesSettingsFilesCols;
 
-        console.log("List structure updated in real-time:", filesCols);
+        console.log("List structure updated in real-time:", filesSettings.filesCols);
         saveFilesSettings();
     });
 
     showHiddenCheck.onchange = () => {
-        filesShowHidden = showHiddenCheck.checked;
+        filesSettings.showHidden = showHiddenCheck.checked;
         saveFilesSettings();
     };
 
     colorFoldersCheck.onchange = () => {
-        filesColorFolders = colorFoldersCheck.checked;
+        filesSettings.colorFolders = colorFoldersCheck.checked;
         saveFilesSettings();
     };
 
     showLSCheck.onchange = () => {
-        filesShowLS = showLSCheck.checked;
+        filesSettings.showLS = showLSCheck.checked;
         saveFilesSettings();
     };
 
     showSSCheck.onchange = () => {
-        filesShowSS = showSSCheck.checked;
+        filesSettings.showSS = showSSCheck.checked;
         saveFilesSettings();
     };
 
     showCKCheck.onchange = () => {
-        filesShowCK = showCKCheck.checked;
+        filesSettings.showCK = showCKCheck.checked;
         saveFilesSettings();
     };
 }
@@ -12571,12 +13472,6 @@ if (name == "files") {
         li.innerHTML = `<b>${_("printer")}</b>${dev.name}`;
       container0.appendChild(li);
     });
-
-
-
-    
-
-
         }
     if (name == "general"){
    const cleanOnBootTgl = document.getElementById('cleanOnBootTgl');
@@ -12633,6 +13528,12 @@ updateBootControls();
         }
 
         if (name == "display"){
+
+
+
+
+    dispImg.style.backgroundImage = body.style.backgroundImage;
+
         const scrTm = document.getElementById("screenTimeout");
         if (localStorage.getItem("sleepModeTimeout")) scrTm.value = parseInt(localStorage.getItem("sleepModeTimeout"))/60/1000;
         scrTm.oninput = () => {
@@ -13249,7 +14150,8 @@ async function node(fileName) {
         const script = new AsyncFunction("require", "process", "console", rawCode);
         const process = {
             env: { NODE_ENV: "production" },
-            version: devProps.os.version
+            version: devProps.os.version,browser: true,
+    platform: devProps.os.name
         };
 
         await script(require, process, console);
@@ -13627,10 +14529,16 @@ async function refreshLibs() {
           async function purgeDir(dir, gui=false) {
               if (dir.trim() == "") return console.log("Cannot purge root directory.");
               let prg1;
+
               let currFile = 0;
 
               const folderPathWithSlash = dir.endsWith("/") ? dir : dir + "/";
               const folderPathWithoutSlash = dir.endsWith("/") ? dir.slice(0, -1) : dir;
+              if (filesSettings.pinnedFldrs.some(fldr=>fldr.name == folderPathWithSlash && (fldr.drive == currentDisk.name))){
+                filesSettings.pinnedFldrs = filesSettings.pinnedFldrs.filter(fldr=>fldr.name !== folderPathWithSlash)
+                console.log('Removed old pinned folder.')
+                localStorage.setItem('config/files', JSON.stringify(filesSettings));
+              }
 
               const rem = fs.filter(file => 
                   file.name.startsWith(folderPathWithSlash) || file.name === folderPathWithoutSlash
@@ -13754,7 +14662,7 @@ await cache.delete(fileName.startsWith('/') ? fileName : ("/"+fileName));
     } 
 
 
-function updateTime(){if(PowerManager.isAsleep)return;const t=document.getElementsByClassName("clock-time"),d=document.getElementsByClassName("clock-date");if(!t.length&&!d.length)return;const n=new Date(),a=n.toLocaleTimeString(dateLang,{hour:"2-digit",minute:"2-digit",second:"2-digit"}),r=new Intl.DateTimeFormat(dateLang,{weekday:"short",day:"numeric",month:"long"}).format(n),c=r.charAt(0).toUpperCase()+r.slice(1);Array.from(t).forEach(e=>{e.textContent=a,updateSystemPopover(e,c,!1,!1)}),Array.from(d).forEach(e=>e.textContent=c)}
+function updateTime(){if(PowerManager.isAsleep)return;const t=document.getElementsByClassName("clock-time"),d=document.getElementsByClassName("clock-date");if(!t.length&&!d.length)return;const n=new Date(),a=n.toLocaleTimeString(dateLang,{hour:"2-digit",minute:"2-digit",second:"2-digit"}),r=new Intl.DateTimeFormat(dateLang,{weekday:"short",day:"numeric",month:"long"}).format(n),c=r.charAt(0).toUpperCase()+r.slice(1);Array.from(t).forEach(e=>{e.textContent=a,e.title=c}),Array.from(d).forEach(e=>e.textContent=c)}
 function hideMenus(e) {
     document.querySelectorAll(".menu").forEach(menu => {
         menu.style.display = "none";
@@ -13998,8 +14906,8 @@ const menu = document.getElementById("textM");
                     }
 
 
-                    // Swapped native title for Popover API
-                    updateSystemPopover(batContainer, `${level}%`, false, false);
+                
+                    batContainer.title=`${level}%`;
                 }
 
             };
@@ -14022,6 +14930,7 @@ function setBeatMon() {
     const { usedJSHeapSize, jsHeapSizeLimit } = performance.memory;
     // If using more than 90% of the allocated browser memory
     if (usedJSHeapSize > jsHeapSizeLimit * 0.90) {
+        safeShutdown();
       // Render your custom UI safely
       document.body.innerHTML = `
         <h1>System halted!</h1>
@@ -14036,6 +14945,13 @@ function setBeatMon() {
 
 }
 
+function updateLocator(){
+    const locContainer = document.getElementById("loc");
+        if (!locContainer) return;
+        locContainer.style.display = locatorState ? 'block' : 'none';
+}
+
+setInterval(updateLocator, 500)
 
 async function updateNetwork() {
     const updateInfo = () => {
@@ -14087,8 +15003,8 @@ async function updateNetwork() {
         if (svgElement) {
             svgElement.style.color = strokeColor;
         }
-
-        updateSystemPopover(netContainer, tooltipText, false, false);
+netContainer.title=tooltipText;
+        
     };
 
     updateInfo();
@@ -14156,13 +15072,9 @@ function showDesktop(mode = -1) {
         const vol1 = vol0.volume;
 
         if (volContainer) {
-            updateSystemPopover(
-    volContainer,
-    Math.round(vol1) + "%\n" +
-    (devices.find(d => d.type == 'audioOutput' && d.name != 'Default')?.name || ''),
-    false,
-    false
-);
+            volContainer.title = Math.round(vol1) + "%\n" +
+    (devices.find(d => d.type == 'audioOutput' && d.name != 'Default')?.name || '')
+            
             if (vol1 == 0 || vol0.muted) volContainer.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-volume-mute" viewBox="0 0 16 16">
       <path d="M6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06M6 5.04 4.312 6.39A.5.5 0 0 1 4 6.5H2v3h2a.5.5 0 0 1 .312.11L6 10.96zm7.854.606a.5.5 0 0 1 0 .708L12.207 8l1.647 1.646a.5.5 0 0 1-.708.708L11.5 8.707l-1.646 1.647a.5.5 0 0 1-.708-.708L10.793 8 9.146 6.354a.5.5 0 1 1 .708-.708L11.5 7.293l1.646-1.647a.5.5 0 0 1 .708 0"/>
     </svg>`;

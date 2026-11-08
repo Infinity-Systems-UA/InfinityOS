@@ -427,9 +427,9 @@ window.open = function(url, targetName, windowFeatures = '') {
             }
         });
     }
-
+const clickedUrl = new URL(url);
     try {
-        const clickedUrl = new URL(url);
+        
 
         const assoc = getUrlAssoc();
 
@@ -491,7 +491,7 @@ const origin =
         );
     }
 
-
+if (clickedUrl.protocol != 'http:' && clickedUrl.protocol != 'https:' ) return;
     
     const windowClasses = [wbtheme, 'text', 'no-full'];
 
@@ -589,7 +589,6 @@ const origin =
                         style="width:100%;height:100%;border:none"
                         sandbox="
                             allow-scripts allow-forms allow-same-origin
-                            allow-downloads allow-modals
                             allow-orientation-lock allow-pointer-lock
                             allow-presentation
                             allow-storage-access-by-user-activation
@@ -819,6 +818,7 @@ window.originalConsoleError = console.error.bind(console);
 
 window.showJsError = (message, source, lineno, colno) => {
     if (!INTERCEPT_ERRS) return;
+    if (message.toLowerCase().trim() == 'script error') return; // Non-informative error.
 
     const escapeHtml = (value) =>
         String(value ?? "").replace(/[&<>"']/g, char => ({
@@ -844,6 +844,7 @@ window.showJsError = (message, source, lineno, colno) => {
             <img width="70" src="${icns.dialogErr}">
             <br>${escapeHtml(message.replace('Unhandled Rejection: ', '').replace("Uncaught Error: ",''))}${details}
         </div>`;
+
 
     try {
         new wm(_("js_error"), {
@@ -1946,203 +1947,4 @@ window.Notification = OSNotification;
   sc.textContent = NotificationWrapper;
   
   return NotificationWrapper;
-}
-
-
-const popoverControllers = new Map();
-
-const popoverObserver = new MutationObserver(() => {
-    for (const [triggerElement, data] of popoverControllers) {
-        // Element was removed from the document
-        if (!triggerElement.isConnected) {
-            data.controller.abort();
-            popoverControllers.delete(triggerElement);
-
-            // Remove associated popover
-            const popover = document.getElementById(data.popoverId);
-
-            if (popover) {
-                try {
-                    popover.hidePopover();
-                } catch {}
-
-                popover.remove();
-                console.log("[Popover REM] " + data.popoverId);
-            }
-
-            console.log("[Popover LISTENERS REM]", triggerElement);
-        }
-    }
-});
-
-popoverObserver.observe(document.body, {
-    childList: true,
-    subtree: true
-});
-
-
-const elementIds = new WeakMap();
-let nextElementId = 1;
-
-function getUniqueElementId(element) {
-    if (!elementIds.has(element)) {
-        elementIds.set(element, nextElementId++);
-    }
-
-    return elementIds.get(element);
-}
-
-
-function updateSystemPopover(
-    triggerElement,
-    text = '',
-    r = true,
-    c = false,
-    k = true
-) {
-    if (!triggerElement) return;
-
-    // Preserve original title
-    if (triggerElement.hasAttribute('title')) {
-        triggerElement.dataset.originalTitle = triggerElement.title;
-    }
-
-    text = text === ''
-        ? (triggerElement.dataset.originalTitle || '')
-        : text;
-
-    if (r) {
-        triggerElement.removeAttribute('title');
-    }
-
-    if (detectMobile() && c) return;
-
-
-    // --------------------------------------------------
-    // Check for an existing controller
-    // --------------------------------------------------
-
-    let data = popoverControllers.get(triggerElement);
-
-    if (data) {
-        // Already has a live controller.
-        // Just update the popover instead of creating
-        // another controller.
-        if (!data.controller.signal.aborted) {
-            const popover = document.getElementById(data.popoverId);
-
-            if (popover) {
-                popover.textContent = text;
-                data.popover = popover;
-            }
-
-            return;
-        }
-
-        // Old controller was already aborted
-        popoverControllers.delete(triggerElement);
-        data = null;
-    }
-
-
-    // --------------------------------------------------
-    // Create/retrieve popover
-    // --------------------------------------------------
-
-    const elementId = getUniqueElementId(triggerElement);
-
-    const popoverId =
-        `popover-${elementId}${c ? '-application' : '-system'}`;
-
-    let popover = document.getElementById(popoverId);
-
-    if (popover && c) {
-        try {
-            popover.hidePopover();
-        } catch {}
-
-        popover.remove();
-        popover = null;
-    }
-
-    if (!popover) {
-        popover = document.createElement('div');
-
-        popover.id = popoverId;
-        popover.setAttribute('popover', 'auto');
-        popover.className = 'popover';
-
-        popover.style.position = 'fixed';
-        popover.style.margin = '0';
-        popover.style.pointerEvents = 'none';
-
-        document.body.appendChild(popover);
-
-        
-    }
-
-    popover.textContent = text;
-
-    triggerElement.setAttribute(
-        'popovertarget',
-        popoverId
-    );
-
-
-    // --------------------------------------------------
-    // Create ONE controller for this element
-    // --------------------------------------------------
-
-    const controller = new AbortController();
-
-    popoverControllers.set(triggerElement, {
-        controller,
-        popoverId,
-        popover
-    });
-
-
-
-    const { signal } = controller;
-
-    const dpr =
-        parseFloat(window.devicePixelRatio.toFixed(1)) || 1;
-
-
-    // --------------------------------------------------
-    // Pointer move
-    // --------------------------------------------------
-
-    triggerElement.addEventListener(
-        'pointermove',
-        (e) => {
-            try {
-                popover.style.left =
-                    Math.round(e.screenX / dpr) + 'px';
-
-                popover.style.top =
-                    Math.round(e.screenY / dpr) + 'px';
-
-                popover.showPopover();
-            } catch (err) {
-                console.error(err);
-            }
-        },
-        { signal }
-    );
-
-
-    // --------------------------------------------------
-    // Pointer leave
-    // --------------------------------------------------
-
-    triggerElement.addEventListener(
-        'pointerleave',
-        () => {
-            try {
-                popover.hidePopover();
-            } catch {}
-        },
-        { signal }
-    );
 }
